@@ -10,21 +10,58 @@
   const SLOTS = [[50, 80], [8, 66], [8, 28], [50, 12], [92, 28], [92, 66]];
   const CENTER = [50, 48];
 
-  // Indices de déviation (voir CLAUDE.md) : fish - regs forts parmi les joueurs restant à parler.
-  const DEVIATIONS = [3, 2, 1, 0, -1];
+  // Profils de joueurs à la table (voir CLAUDE.md), dans l'ordre du menu.
+  // La couleur du profil sert aussi pour l'action d'ouverture / 3bet dans la grille.
+  const PROFILES = [
+    { id: 'aggro', label: 'vs. aggro', color: '#22c7e0' },
+    { id: 'gto', label: 'GTO', color: '#d92b2b' },
+    { id: 'fish', label: 'vs. passif', color: '#ec6fb4' },
+    { id: 'nit', label: 'vs. nit', color: '#3d5fd6' },
+    { id: 'supernit', label: 'vs. super nit', color: '#2333a3' },
+  ];
+  const profileOf = (id) => PROFILES.find((p) => p.id === id);
 
-  const state = { hero: 'UTG', dev: 0, hovered: null };
+  // Couleur d'une action dans la grille : raise / 3bet prennent la couleur du profil.
+  const actionColor = (a) =>
+    a === 'raise' || a === '3bet' ? profileOf(state.profile).color : window.ACTIONS[a].color;
 
-  const hasOpen = (pos) => !!window.RANGES.open[pos];
+  // Actions qu'on peut donner à un vilain en cliquant sur son siège.
+  const VILLAIN_ACTIONS = ['raise', 'call', '3bet'];
+  const EMPTY_SPOT = { size: 0, actions: {} };
 
-  // Range à afficher pour la position et l'indice courants (repli sur l'indice 0).
+  // villain : { position: 'raise' | 'call' | '3bet' } pour les vilains dont on a donné l'action.
+  const state = { hero: 'UTG', profile: 'gto', hovered: null, villain: {} };
+
+  const posIdx = (pos) => POSITIONS.indexOf(pos);
+  const openSize = (pos) => (window.RANGES.open[pos] ? window.RANGES.open[pos].gto.size : 3);
+
+  // Déduit le spot des actions des vilains :
+  //   aucune action                       -> open
+  //   un seul vilain avant le héros raise -> 3bet (héros face à un open)
+  //   autre séquence                      -> non couverte (kind = null)
+  // Puis choisit la range du profil courant (repli sur la range GTO).
   function currentSpot() {
-    const byDev = window.RANGES.open[state.hero];
-    const spot = byDev[state.dev];
-    return { spot: spot || byDev[0], fallback: !spot };
+    const acts = Object.entries(state.villain);
+    let kind = null, villain = null, byProfile = null;
+    if (!acts.length) {
+      kind = 'open';
+      byProfile = window.RANGES.open[state.hero];
+    } else if (acts.length === 1 && acts[0][1] === 'raise' && posIdx(acts[0][0]) < posIdx(state.hero)) {
+      kind = 'threebet';
+      villain = acts[0][0];
+      byProfile = (window.RANGES.threebet[state.hero] || {})[villain];
+    }
+    if (!byProfile) return { kind, villain, spot: EMPTY_SPOT, missing: true, fallback: false };
+    const spot = byProfile[state.profile];
+    return { kind, villain, spot: spot || byProfile.gto, missing: false, fallback: !spot };
   }
 
-  const signed = (v) => (v > 0 ? '+' + v : v < 0 ? '−' + -v : '0');
+  // Action affichée pour le héros sur la table : [action, montant] ou null.
+  function heroAction(cur) {
+    if (!cur.missing) return [cur.kind === 'open' ? 'raise' : '3bet', cur.spot.size];
+    const actedAfter = Object.keys(state.villain).some((p) => posIdx(p) > posIdx(state.hero));
+    return actedAfter ? ['raise', openSize(state.hero)] : null;
+  }
 
   /* ---------- Parsing des ranges ---------- */
 
@@ -119,7 +156,10 @@
       seat.innerHTML =
         '<div class="plate"><span class="pos">' + pos + '</span><span class="stack"></span></div>' +
         '<div class="tag"></div>';
-      seat.addEventListener('click', () => selectHero(pos));
+      seat.addEventListener('click', (e) => {
+        e.stopPropagation();
+        toggleMenu(pos);
+      });
       tableEl.appendChild(seat);
       seatEls[pos] = seat;
 
@@ -133,47 +173,62 @@
 
   const lerp = (a, b, t) => a + (b - a) * t;
   const fmt = (n) => (Math.round(n * 10) / 10).toString().replace('.', ',');
+  const seatXY = (pos) => SLOTS[(posIdx(pos) - posIdx(state.hero) + 6) % 6];
 
   function renderTable() {
-    const heroIdx = POSITIONS.indexOf(state.hero);
-    const { spot } = currentSpot();
+    const heroIdx = posIdx(state.hero);
+    const heroAct = heroAction(currentSpot());
     let pot = 0;
+    let level = 1; // mise la plus haute en cours (BB)
 
+    // Parcours dans l'ordre de parole pour calculer les montants (call = suit, relance = x3).
     POSITIONS.forEach((pos, i) => {
-      const slot = (i - heroIdx + 6) % 6;
-      const [x, y] = SLOTS[slot];
+      const [x, y] = seatXY(pos);
       const seat = seatEls[pos];
       const isHero = pos === state.hero;
-      const folded = i < heroIdx;
 
-      let bet = 0;
-      if (isHero) bet = spot.size;
-      else if (pos === 'SB') bet = 0.5;
-      else if (pos === 'BB') bet = 1;
+      let act = null, amt = 0;
+      if (isHero) {
+        if (heroAct) [act, amt] = heroAct;
+      } else if (state.villain[pos]) {
+        act = state.villain[pos];
+        amt = act === 'call' ? level : level <= 1 ? openSize(pos) : level * 3;
+      }
+      if (act) level = Math.max(level, amt);
+      const folded = !act && i < heroIdx;
+
+      let bet = act ? amt : 0;
+      if (!act && pos === 'SB') bet = 0.5;
+      else if (!act && pos === 'BB') bet = 1;
       pot += bet;
 
       seat.style.left = x + '%';
       seat.style.top = y + '%';
       seat.classList.toggle('hero', isHero);
       seat.classList.toggle('folded', folded);
-      seat.classList.toggle('disabled', !hasOpen(pos));
       seat.querySelector('.stack').textContent = fmt(100 - bet) + ' BB';
 
       const tag = seat.querySelector('.tag');
       tag.className = 'tag';
-      if (folded) { tag.textContent = 'Fold'; tag.classList.add('show', 'fold'); }
-      else if (isHero) { tag.textContent = 'Raise ' + fmt(spot.size); tag.classList.add('show', 'raise'); }
-      else tag.textContent = '';
+      tag.style.background = '';
+      if (folded) {
+        tag.textContent = 'Fold';
+        tag.classList.add('show', 'fold');
+      } else if (act) {
+        tag.textContent = window.ACTIONS[act].label + (act === 'call' ? '' : ' ' + fmt(amt));
+        tag.style.background = window.ACTIONS[act].color;
+        tag.classList.add('show');
+      } else tag.textContent = '';
 
       const b = betEls[pos];
       b.style.left = lerp(x, CENTER[0], 0.42) + '%';
       b.style.top = lerp(y, CENTER[1], 0.42) + '%';
       b.classList.toggle('show', bet > 0);
-      b.classList.toggle('raise', isHero);
+      b.querySelector('.chip').style.background = act ? window.ACTIONS[act].color : '';
       b.querySelector('.amt').textContent = fmt(bet);
     });
 
-    const [bx, by] = SLOTS[(POSITIONS.indexOf('BTN') - heroIdx + 6) % 6];
+    const [bx, by] = seatXY('BTN');
     const btn = $('#dealer');
     btn.style.left = lerp(bx, CENTER[0], 0.3) + (bx < 50 ? 4 : bx > 50 ? -4 : 7) + '%';
     btn.style.top = lerp(by, CENTER[1], 0.3) + (by > 50 ? -3 : 3) + '%';
@@ -213,7 +268,7 @@
     actionOrder().forEach((a) => {
       const f = s[a] || 0;
       if (f <= 0) return;
-      const color = window.ACTIONS[a].color;
+      const color = actionColor(a);
       stops.push(color + ' ' + acc * 100 + '%', color + ' ' + (acc + f) * 100 + '%');
       acc += f;
     });
@@ -229,8 +284,26 @@
     });
   }
 
+  function spotTitle(cur) {
+    if (cur.kind === 'open') return state.hero + ' — Open';
+    if (cur.kind === 'threebet') return state.hero + ' vs ' + cur.villain + ' — 3bet';
+    return state.hero + ' — Spot non couvert';
+  }
+
+  function spotSub(cur) {
+    if (cur.missing) {
+      if (cur.kind === 'open') return "Pas de range d'open depuis la " + state.hero + " : clique sur un siège pour donner l'action d'un vilain.";
+      if (cur.kind === 'threebet') return 'Pas de range définie pour ' + state.hero + ' face à un open ' + cur.villain + '.';
+      return "Pas de range pour cette séquence : seuls l'open et le 3bet face à un open sont couverts.";
+    }
+    if (cur.fallback) return 'Pas de range définie ' + profileOf(state.profile).label + ' : range GTO affichée.';
+    if (cur.kind === 'open') return '';
+    return cur.villain + ' ouvre à ' + fmt(openSize(cur.villain)) + ' BB · 3bet à ' + fmt(cur.spot.size) + ' BB';
+  }
+
   function renderPanel() {
-    const { spot, fallback } = currentSpot();
+    const cur = currentSpot();
+    const { spot } = cur;
     const totals = {};
     actionOrder().forEach((a) => { totals[a] = 0; });
     Object.entries(strategy).forEach(([h, s]) => {
@@ -238,19 +311,18 @@
     });
     const played = TOTAL_COMBOS - totals.fold;
 
-    $('#spot-title').innerHTML = state.hero + ' — Open <span class="dev-badge" data-sign="' + Math.sign(state.dev) + '">' + signed(state.dev) + '</span>';
+    $('#spot-title').innerHTML = spotTitle(cur) + ' <span class="profile-badge" style="--pc:' + profileOf(state.profile).color + '">' + profileOf(state.profile).label + '</span>';
     const sub = $('#spot-sub');
-    sub.classList.toggle('warn', fallback);
-    sub.textContent = fallback
-      ? "Pas de range définie pour l'indice " + signed(state.dev) + ' : stratégie de base affichée.'
-      : 'Premier à parler, ouverture à ' + fmt(spot.size) + ' BB';
+    sub.classList.toggle('warn', cur.missing || cur.fallback);
+    sub.textContent = spotSub(cur);
+    sub.hidden = !sub.textContent;
     $('#stat-pct').textContent = fmt((played / TOTAL_COMBOS) * 100) + ' %';
     $('#stat-combos').textContent = fmt(played);
 
     $('#legend').innerHTML = actionOrder().map((a) => {
       const act = window.ACTIONS[a];
-      const label = a === 'raise' ? act.label + ' ' + fmt(spot.size) : act.label;
-      return '<li><span class="sw" style="background:' + act.color + '"></span>' +
+      const label = a === 'raise' || a === '3bet' ? act.label + ' ' + fmt(spot.size) : act.label;
+      return '<li><span class="sw" style="background:' + actionColor(a) + '"></span>' +
         '<span class="lbl">' + label + '</span>' +
         '<span class="val">' + fmt((totals[a] / TOTAL_COMBOS) * 100) + ' %</span>' +
         '<span class="cmb">' + fmt(totals[a]) + ' c.</span></li>';
@@ -267,12 +339,12 @@
     const el = $('#hover');
     const h = state.hovered;
     if (!h) {
-      el.innerHTML = '<span class="muted">Survolez une main pour voir sa stratégie.</span>';
+      el.innerHTML = '';
       return;
     }
     const s = strategy[h];
     const rows = actionOrder().filter((a) => s[a] > 0).map((a) =>
-      '<div class="hrow"><span class="sw" style="background:' + window.ACTIONS[a].color + '"></span>' +
+      '<div class="hrow"><span class="sw" style="background:' + actionColor(a) + '"></span>' +
       window.ACTIONS[a].label + '<span class="val">' + Math.round(s[a] * 100) + ' %</span></div>'
     ).join('');
     el.innerHTML = '<div class="hhand">' + h + ' <span class="muted">· ' + combos(h) + ' combos</span></div>' + rows;
@@ -286,22 +358,23 @@
   }
 
   function selectHero(pos) {
-    if (!hasOpen(pos)) return;
     state.hero = pos;
+    state.villain = {};
+    hideMenu();
     document.querySelectorAll('.positions button').forEach((b) => {
       b.classList.toggle('active', b.dataset.pos === pos);
     });
     render();
   }
 
-  function selectDev(v) {
-    state.dev = v;
+  function selectProfile(id) {
+    state.profile = id;
     render();
   }
 
   function render() {
     renderTable();
-    renderDeviation();
+    renderProfiles();
     renderGrid();
     renderPanel();
   }
@@ -312,57 +385,104 @@
       b.type = 'button';
       b.dataset.pos = pos;
       b.textContent = pos;
-      if (!hasOpen(pos)) {
-        b.disabled = true;
-        b.title = "Pas de range d'open depuis la BB";
-      }
       b.addEventListener('click', () => selectHero(pos));
       nav.appendChild(b);
     });
   }
 
-  /* ---------- Indice de déviation ---------- */
+  /* ---------- Action des vilains (menu sur les sièges) ---------- */
 
-  const devEls = {};
+  const menuEl = document.createElement('div');
+  menuEl.className = 'seat-menu';
+  menuEl.hidden = true;
+  tableEl.appendChild(menuEl);
+  let menuPos = null;
 
-  function buildDeviation() {
-    const list = $('#dev-list');
-    DEVIATIONS.forEach((d) => {
+  function hideMenu() {
+    menuEl.hidden = true;
+    menuPos = null;
+  }
+
+  function toggleMenu(pos) {
+    if (pos === state.hero || pos === menuPos) { hideMenu(); return; }
+    menuPos = pos;
+    const current = state.villain[pos] || null;
+    menuEl.innerHTML = '';
+    [null].concat(VILLAIN_ACTIONS).forEach((a) => {
+      const b = document.createElement('button');
+      b.type = 'button';
+      b.textContent = a ? window.ACTIONS[a].label : 'Aucune';
+      b.classList.toggle('active', a === current);
+      if (a) b.style.setProperty('--c', window.ACTIONS[a].color);
+      b.addEventListener('click', (e) => {
+        e.stopPropagation();
+        setVillain(pos, a);
+      });
+      menuEl.appendChild(b);
+    });
+
+    const [x, y] = seatXY(pos);
+    menuEl.style.left = x + '%';
+    menuEl.style.top = y + '%';
+    menuEl.dataset.v = y > 50 ? 'up' : 'down';
+    menuEl.dataset.h = x < 30 ? 'right' : x > 70 ? 'left' : 'center';
+    menuEl.hidden = false;
+  }
+
+  function setVillain(pos, act) {
+    if (act) state.villain[pos] = act;
+    else delete state.villain[pos];
+    hideMenu();
+    render();
+  }
+
+  document.addEventListener('click', (e) => {
+    if (!menuEl.contains(e.target)) hideMenu();
+  });
+
+  /* ---------- Profil de la table ---------- */
+
+  const profileEls = {};
+
+  function buildProfiles() {
+    const list = $('#profile-list');
+    PROFILES.forEach(({ id, label, color }) => {
       const li = document.createElement('li');
       const b = document.createElement('button');
       b.type = 'button';
-      b.dataset.sign = Math.sign(d);
-      b.textContent = signed(d);
-      b.addEventListener('click', () => selectDev(d));
+      b.style.setProperty('--pc', color);
+      b.textContent = label;
+      b.addEventListener('click', () => selectProfile(id));
       li.appendChild(b);
       list.appendChild(li);
-      devEls[d] = b;
+      profileEls[id] = b;
     });
   }
 
-  function renderDeviation() {
-    DEVIATIONS.forEach((d) => {
-      devEls[d].classList.toggle('active', d === state.dev);
+  function renderProfiles() {
+    PROFILES.forEach(({ id }) => {
+      profileEls[id].classList.toggle('active', id === state.profile);
     });
   }
 
   function bindKeys() {
     document.addEventListener('keydown', (e) => {
-      if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') {
-        const open = POSITIONS.filter(hasOpen);
-        const i = open.indexOf(state.hero) + (e.key === 'ArrowRight' ? 1 : -1);
-        selectHero(open[(i + open.length) % open.length]);
+      if (e.key === 'Escape') {
+        hideMenu();
+      } else if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') {
+        const i = posIdx(state.hero) + (e.key === 'ArrowRight' ? 1 : -1);
+        selectHero(POSITIONS[(i + 6) % 6]);
       } else if ((e.key === 'ArrowUp' || e.key === 'ArrowDown')) {
         e.preventDefault();
-        const v = state.dev + (e.key === 'ArrowUp' ? 1 : -1);
-        if (DEVIATIONS.includes(v)) selectDev(v);
+        const i = PROFILES.findIndex((p) => p.id === state.profile) + (e.key === 'ArrowDown' ? 1 : -1);
+        if (PROFILES[i]) selectProfile(PROFILES[i].id);
       }
     });
   }
 
   buildPositions($('#positions'));
   buildTable();
-  buildDeviation();
+  buildProfiles();
   buildGrid();
   bindKeys();
   selectHero(state.hero);

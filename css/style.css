@@ -46,39 +46,34 @@ main {
 .positions button.active { background: var(--accent); border-color: var(--accent); color: #fff; }
 .positions button:disabled { opacity: .35; cursor: not-allowed; }
 
-/* ---------- Indice de déviation ---------- */
+/* ---------- Profil de la table ---------- */
 
-.deviation {
+.profiles {
   flex: none;
   background: var(--surface); border: 1px solid var(--border); border-radius: 12px;
   padding: 10px 12px;
 }
-.deviation h3 {
+.profiles h3 {
   margin: 0 0 6px; font-size: 11px; font-weight: 600; text-align: center;
   text-transform: uppercase; letter-spacing: .8px; color: var(--muted);
 }
-.dev-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 2px; }
-.dev-list button {
-  width: 84px; display: block;
-  font: inherit; font-size: 15px; font-weight: 700; text-align: center; color: var(--text);
-  font-variant-numeric: tabular-nums;
-  padding: 4px 0; border-radius: 6px; border: 1px solid transparent;
-  background: var(--surface-2); cursor: pointer;
+.profile-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 2px; }
+/* --pc : couleur du profil, posée par js/app.js (PROFILES). */
+.profile-list button {
+  width: 120px; display: block;
+  font: inherit; font-size: 13px; font-weight: 600; text-align: center;
+  color: #fff; background: var(--pc); text-shadow: 0 1px 1px rgba(0,0,0,.35);
+  padding: 4px 8px; border-radius: 6px; border: 2px solid transparent;
+  cursor: pointer; white-space: nowrap; opacity: .5;
 }
-.dev-list button:hover:not(:disabled) { border-color: var(--muted); }
-.dev-list button[data-sign="1"] { color: #4cc38a; }
-.dev-list button[data-sign="-1"] { color: #6ea8ff; }
-.dev-list button.active { border-color: var(--text); background: #2e3845; }
-.dev-list button.active[data-sign="1"] { border-color: #4cc38a; background: rgba(76,195,138,.15); }
-.dev-list button.active[data-sign="-1"] { border-color: #6ea8ff; background: rgba(110,168,255,.15); }
+.profile-list button:hover { opacity: .8; }
+.profile-list button.active { opacity: 1; border-color: #fff; }
 
-.dev-badge {
+.profile-badge {
   display: inline-block; vertical-align: middle; margin-left: 6px;
   font-size: 13px; padding: 2px 8px; border-radius: 6px;
-  background: var(--surface-2); color: var(--text);
+  background: var(--pc); color: #fff; text-shadow: 0 1px 1px rgba(0,0,0,.35);
 }
-.dev-badge[data-sign="1"] { background: rgba(76,195,138,.18); color: #4cc38a; }
-.dev-badge[data-sign="-1"] { background: rgba(110,168,255,.18); color: #6ea8ff; }
 .panel p.warn { color: #e8b04a; }
 .panel .parse-errors {
   color: #ff8a7a; background: rgba(224,82,63,.12);
@@ -137,7 +132,7 @@ main {
   transition: left .5s ease, top .5s ease, opacity .3s;
   z-index: 2;
 }
-.seat.disabled { cursor: default; }
+.seat.hero { cursor: default; }
 
 .plate {
   position: relative; z-index: 1;
@@ -151,7 +146,7 @@ main {
 .plate .pos { font-weight: 700; font-size: 1.05em; }
 .plate .stack { color: var(--muted); font-size: .85em; }
 
-.seat:not(.disabled):hover .plate { border-color: #6b7888; }
+.seat:not(.hero):hover .plate { border-color: #6b7888; }
 .seat.hero .plate {
   border-color: var(--accent);
   box-shadow: 0 0 0 3px rgba(224,82,63,.25), 0 4px 14px rgba(0,0,0,.5);
@@ -165,8 +160,8 @@ main {
   opacity: 0; transition: opacity .3s;
 }
 .tag.show { opacity: 1; }
+.tag { color: #fff; }
 .tag.fold { background: #2f3a48; color: #aab4c1; }
-.tag.raise { background: var(--accent); color: #fff; }
 
 /* Mises */
 
@@ -183,8 +178,33 @@ main {
   width: 1.3em; height: 1.3em; border-radius: 50%;
   background: #3d7bd9; border: .22em dashed #e9eef7;
 }
-.bet.raise .chip { background: var(--accent); }
 .bet .amt { background: rgba(0,0,0,.45); padding: .1em .45em; border-radius: .4em; }
+
+/* Menu d'action d'un vilain */
+
+.seat-menu {
+  position: absolute; z-index: 5;
+  display: flex; flex-direction: column; gap: 3px;
+  padding: 5px; border-radius: 8px;
+  background: var(--surface); border: 1px solid var(--border);
+  box-shadow: 0 8px 24px rgba(0,0,0,.55);
+  font-size: 13px;
+  --tx: -50%;
+}
+.seat-menu[hidden] { display: none; }
+.seat-menu[data-h="right"] { --tx: -20%; }
+.seat-menu[data-h="left"] { --tx: -80%; }
+.seat-menu[data-v="down"] { transform: translate(var(--tx), 28px); }
+.seat-menu[data-v="up"] { transform: translate(var(--tx), calc(-100% - 28px)); }
+.seat-menu button {
+  --c: var(--muted);
+  font: inherit; font-weight: 600; color: var(--text);
+  min-width: 84px; padding: 4px 10px; border-radius: 6px; text-align: left;
+  border: 1px solid transparent; border-left: 4px solid var(--c);
+  background: var(--surface-2); cursor: pointer;
+}
+.seat-menu button:hover { border-color: var(--muted); border-left-color: var(--c); }
+.seat-menu button.active { background: var(--c); border-color: var(--c); color: #fff; }
 
 /* ---------- Grille de range ---------- */
 
@@ -259,7 +279,6 @@ main {
 .hrow { display: flex; align-items: center; gap: 8px; padding: 2px 0; }
 .hrow .val { margin-left: auto; font-weight: 600; font-variant-numeric: tabular-nums; }
 
-.hint { margin: 14px 0 0 !important; font-size: 12px !important; }
 
 /* ---------- Responsive ---------- */
 
@@ -271,5 +290,6 @@ main {
   .cell { aspect-ratio: 1; font-size: clamp(7px, 2.6vw, 13px); }
   .panel { width: auto; max-height: none; }
   .table-wrap { flex-direction: column; }
-  .dev-list { flex-direction: row; }
+  .profile-list { flex-direction: row; flex-wrap: wrap; }
+  .profile-list button { width: auto; }
 }
