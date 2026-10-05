@@ -2,7 +2,7 @@
   'use strict';
 
   const RANKS = 'AKQJT98765432'.split('');
-  const POSITIONS = ['UTG', 'HJ', 'CO', 'BTN', 'SB', 'BB'];
+  const POSITIONS = ['LJ', 'HJ', 'CO', 'BTN', 'SB', 'BB'];
   const TOTAL_COMBOS = 1326;
 
   // Emplacements des sièges sur la table (en % du conteneur), dans le sens horaire
@@ -11,26 +11,23 @@
   const CENTER = [50, 48];
 
   // Profils de joueurs à la table (voir CLAUDE.md), dans l'ordre du menu.
-  // La couleur du profil sert aussi pour l'action d'ouverture / 3bet dans la grille.
   const PROFILES = [
     { id: 'aggro', label: 'vs. aggro', color: '#22c7e0' },
-    { id: 'gto', label: 'GTO', color: '#d92b2b' },
+    { id: 'gto', label: 'vs. reg', color: '#d92b2b' },
+    { id: 'lin', label: 'vs. reg linéaire', color: '#f08a24' },
     { id: 'fish', label: 'vs. passif', color: '#ec6fb4' },
     { id: 'nit', label: 'vs. nit', color: '#3d5fd6' },
     { id: 'supernit', label: 'vs. super nit', color: '#2333a3' },
   ];
   const profileOf = (id) => PROFILES.find((p) => p.id === id);
 
-  // Couleur d'une action dans la grille : raise / 3bet prennent la couleur du profil.
-  const actionColor = (a) =>
-    a === 'raise' || a === '3bet' ? profileOf(state.profile).color : window.ACTIONS[a].color;
 
   // Actions qu'on peut donner à un vilain en cliquant sur son siège.
   const VILLAIN_ACTIONS = ['raise', 'call', '3bet'];
   const EMPTY_SPOT = { size: 0, actions: {} };
 
   // villain : { position: 'raise' | 'call' | '3bet' } pour les vilains dont on a donné l'action.
-  const state = { hero: 'UTG', profile: 'gto', hovered: null, villain: {} };
+  const state = { hero: 'LJ', profile: 'gto', hovered: null, villain: {} };
 
   const posIdx = (pos) => POSITIONS.indexOf(pos);
   const openSize = (pos) => (window.RANGES.open[pos] ? window.RANGES.open[pos].gto.size : 3);
@@ -38,8 +35,11 @@
   // Déduit le spot des actions des vilains :
   //   aucune action                       -> open
   //   un seul vilain avant le héros raise -> 3bet (héros face à un open)
+  //   un seul vilain après le héros 3bet  -> vs3bet (héros a ouvert, défense face au 3bet)
   //   autre séquence                      -> non couverte (kind = null)
-  // Puis choisit la range du profil courant (repli sur la range GTO).
+  // Puis choisit la range du profil courant. Seuls les profils définis pour le spot sont proposés
+  // (vs. reg toujours) ; si le profil choisi n'existe pas ici, la range vs. reg est affichée
+  // sans changer le choix (il revient dès qu'un spot le définit).
   function currentSpot() {
     const acts = Object.entries(state.villain);
     let kind = null, villain = null, byProfile = null;
@@ -50,14 +50,20 @@
       kind = 'threebet';
       villain = acts[0][0];
       byProfile = (window.RANGES.threebet[state.hero] || {})[villain];
+    } else if (acts.length === 1 && acts[0][1] === '3bet' && posIdx(acts[0][0]) > posIdx(state.hero)) {
+      kind = 'vs3bet';
+      villain = acts[0][0];
+      byProfile = (window.RANGES.vs3bet[state.hero] || {})[villain];
     }
-    if (!byProfile) return { kind, villain, spot: EMPTY_SPOT, missing: true, fallback: false };
-    const spot = byProfile[state.profile];
-    return { kind, villain, spot: spot || byProfile.gto, missing: false, fallback: !spot };
+    if (!byProfile) return { kind, villain, spot: EMPTY_SPOT, missing: true, profile: 'gto', profiles: ['gto'] };
+    const profiles = PROFILES.map((p) => p.id).filter((id) => id === 'gto' || byProfile[id]);
+    const profile = byProfile[state.profile] ? state.profile : 'gto';
+    return { kind, villain, spot: byProfile[profile] || EMPTY_SPOT, missing: false, profile, profiles };
   }
 
   // Action affichée pour le héros sur la table : [action, montant] ou null.
   function heroAction(cur) {
+    if (cur.kind === 'vs3bet') return ['raise', openSize(state.hero)];
     if (!cur.missing) return [cur.kind === 'open' ? 'raise' : '3bet', cur.spot.size];
     const actedAfter = Object.keys(state.villain).some((p) => posIdx(p) > posIdx(state.hero));
     return actedAfter ? ['raise', openSize(state.hero)] : null;
@@ -211,12 +217,14 @@
       const tag = seat.querySelector('.tag');
       tag.className = 'tag';
       tag.style.background = '';
+      tag.style.color = '';
       if (folded) {
         tag.textContent = 'Fold';
         tag.classList.add('show', 'fold');
       } else if (act) {
         tag.textContent = window.ACTIONS[act].label + (act === 'call' ? '' : ' ' + fmt(amt));
         tag.style.background = window.ACTIONS[act].color;
+        tag.style.color = window.ACTIONS[act].text || '';
         tag.classList.add('show');
       } else tag.textContent = '';
 
@@ -268,18 +276,33 @@
     actionOrder().forEach((a) => {
       const f = s[a] || 0;
       if (f <= 0) return;
-      const color = actionColor(a);
+      const color = window.ACTIONS[a].color;
       stops.push(color + ' ' + acc * 100 + '%', color + ' ' + (acc + f) * 100 + '%');
       acc += f;
     });
     return 'linear-gradient(to right, ' + stops.join(', ') + ')';
   }
 
+  // Marques du spot (voir MARKS dans ranges.js) : { clé: { main: true } }.
+  let marks = {};
+
+  function buildMarks(spot) {
+    const out = {};
+    Object.keys(window.MARKS).filter((k) => spot[k]).forEach((k) => { out[k] = parseRange(spot[k]); });
+    return out;
+  }
+
+  const markOf = (h) => Object.keys(marks).find((k) => marks[k][h]);
+
   function renderGrid() {
-    strategy = buildStrategy(currentSpot().spot);
+    const { spot } = currentSpot();
+    strategy = buildStrategy(spot);
+    marks = buildMarks(spot);
     Object.entries(cellEls).forEach(([h, cell]) => {
       const s = strategy[h];
+      const m = markOf(h);
       cell.style.background = background(s);
+      cell.style.boxShadow = m ? 'inset 0 0 0 3px ' + window.MARKS[m].color : '';
       cell.classList.toggle('out', s.fold >= 0.999);
     });
   }
@@ -287,6 +310,7 @@
   function spotTitle(cur) {
     if (cur.kind === 'open') return state.hero + ' — Open';
     if (cur.kind === 'threebet') return state.hero + ' vs ' + cur.villain + ' — 3bet';
+    if (cur.kind === 'vs3bet') return state.hero + ' vs ' + cur.villain + ' — Défense vs 3bet';
     return state.hero + ' — Spot non couvert';
   }
 
@@ -294,10 +318,14 @@
     if (cur.missing) {
       if (cur.kind === 'open') return "Pas de range d'open depuis la " + state.hero + " : clique sur un siège pour donner l'action d'un vilain.";
       if (cur.kind === 'threebet') return 'Pas de range définie pour ' + state.hero + ' face à un open ' + cur.villain + '.';
-      return "Pas de range pour cette séquence : seuls l'open et le 3bet face à un open sont couverts.";
+      if (cur.kind === 'vs3bet') return 'Pas de range définie pour ' + state.hero + ' face à un 3bet ' + cur.villain + '.';
+      return "Pas de range pour cette séquence : seuls l'open, le 3bet face à un open et la défense face à un 3bet sont couverts.";
     }
-    if (cur.fallback) return 'Pas de range définie ' + profileOf(state.profile).label + ' : range GTO affichée.';
     if (cur.kind === 'open') return '';
+    if (cur.kind === 'vs3bet') {
+      return state.hero + ' ouvre à ' + fmt(openSize(state.hero)) + ' BB · ' + cur.villain + ' 3bet à ' +
+        fmt(openSize(state.hero) * 3) + ' BB · 4bet à ' + fmt(cur.spot.size) + ' BB';
+    }
     return cur.villain + ' ouvre à ' + fmt(openSize(cur.villain)) + ' BB · 3bet à ' + fmt(cur.spot.size) + ' BB';
   }
 
@@ -311,9 +339,9 @@
     });
     const played = TOTAL_COMBOS - totals.fold;
 
-    $('#spot-title').innerHTML = spotTitle(cur) + ' <span class="profile-badge" style="--pc:' + profileOf(state.profile).color + '">' + profileOf(state.profile).label + '</span>';
+    $('#spot-title').innerHTML = spotTitle(cur) + ' <span class="profile-badge" style="--pc:' + profileOf(cur.profile).color + '">' + profileOf(cur.profile).label + '</span>';
     const sub = $('#spot-sub');
-    sub.classList.toggle('warn', cur.missing || cur.fallback);
+    sub.classList.toggle('warn', cur.missing);
     sub.textContent = spotSub(cur);
     sub.hidden = !sub.textContent;
     $('#stat-pct').textContent = fmt((played / TOTAL_COMBOS) * 100) + ' %';
@@ -321,11 +349,17 @@
 
     $('#legend').innerHTML = actionOrder().map((a) => {
       const act = window.ACTIONS[a];
-      const label = a === 'raise' || a === '3bet' ? act.label + ' ' + fmt(spot.size) : act.label;
-      return '<li><span class="sw" style="background:' + actionColor(a) + '"></span>' +
+      const label = a === 'raise' || a === '3bet' || a === '4bet' ? act.label + ' ' + fmt(spot.size) : act.label;
+      return '<li><span class="sw" style="background:' + window.ACTIONS[a].color + '"></span>' +
         '<span class="lbl">' + label + '</span>' +
         '<span class="val">' + fmt((totals[a] / TOTAL_COMBOS) * 100) + ' %</span>' +
         '<span class="cmb">' + fmt(totals[a]) + ' c.</span></li>';
+    }).join('') + Object.keys(marks).map((k) => {
+      const n = Object.keys(marks[k]).reduce((acc, h) => acc + combos(h), 0);
+      return '<li><span class="sw mark" style="--c:' + window.MARKS[k].color + '"></span>' +
+        '<span class="lbl">' + window.MARKS[k].label + '</span>' +
+        '<span class="val">' + fmt((n / TOTAL_COMBOS) * 100) + ' %</span>' +
+        '<span class="cmb">' + fmt(n) + ' c.</span></li>';
     }).join('');
 
     const err = $('#parse-errors');
@@ -344,10 +378,13 @@
     }
     const s = strategy[h];
     const rows = actionOrder().filter((a) => s[a] > 0).map((a) =>
-      '<div class="hrow"><span class="sw" style="background:' + actionColor(a) + '"></span>' +
+      '<div class="hrow"><span class="sw" style="background:' + window.ACTIONS[a].color + '"></span>' +
       window.ACTIONS[a].label + '<span class="val">' + Math.round(s[a] * 100) + ' %</span></div>'
     ).join('');
-    el.innerHTML = '<div class="hhand">' + h + ' <span class="muted">· ' + combos(h) + ' combos</span></div>' + rows;
+    const m = markOf(h);
+    const markRow = m ? '<div class="hrow"><span class="sw mark" style="--c:' + window.MARKS[m].color + '"></span>' +
+      window.MARKS[m].label + '</div>' : '';
+    el.innerHTML = '<div class="hhand">' + h + ' <span class="muted">· ' + combos(h) + ' combos</span></div>' + rows + markRow;
   }
 
   /* ---------- Interactions ---------- */
@@ -413,7 +450,10 @@
       b.type = 'button';
       b.textContent = a ? window.ACTIONS[a].label : 'Aucune';
       b.classList.toggle('active', a === current);
-      if (a) b.style.setProperty('--c', window.ACTIONS[a].color);
+      if (a) {
+        b.style.setProperty('--c', window.ACTIONS[a].color);
+        if (window.ACTIONS[a].text) b.style.setProperty('--t', window.ACTIONS[a].text);
+      }
       b.addEventListener('click', (e) => {
         e.stopPropagation();
         setVillain(pos, a);
@@ -460,8 +500,10 @@
   }
 
   function renderProfiles() {
+    const { profile, profiles } = currentSpot();
     PROFILES.forEach(({ id }) => {
-      profileEls[id].classList.toggle('active', id === state.profile);
+      profileEls[id].classList.toggle('active', id === profile);
+      profileEls[id].parentElement.hidden = !profiles.includes(id);
     });
   }
 
@@ -474,8 +516,9 @@
         selectHero(POSITIONS[(i + 6) % 6]);
       } else if ((e.key === 'ArrowUp' || e.key === 'ArrowDown')) {
         e.preventDefault();
-        const i = PROFILES.findIndex((p) => p.id === state.profile) + (e.key === 'ArrowDown' ? 1 : -1);
-        if (PROFILES[i]) selectProfile(PROFILES[i].id);
+        const { profile, profiles } = currentSpot();
+        const next = profiles[profiles.indexOf(profile) + (e.key === 'ArrowDown' ? 1 : -1)];
+        if (next) selectProfile(next);
       }
     });
   }

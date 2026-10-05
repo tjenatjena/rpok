@@ -204,7 +204,7 @@ main {
   background: var(--surface-2); cursor: pointer;
 }
 .seat-menu button:hover { border-color: var(--muted); border-left-color: var(--c); }
-.seat-menu button.active { background: var(--c); border-color: var(--c); color: #fff; }
+.seat-menu button.active { background: var(--c); border-color: var(--c); color: var(--t, #fff); }
 
 /* ---------- Grille de range ---------- */
 
@@ -268,6 +268,7 @@ main {
 .legend .val { font-weight: 600; font-variant-numeric: tabular-nums; }
 .legend .cmb { color: var(--muted); font-size: 12px; text-align: right; font-variant-numeric: tabular-nums; }
 .sw { width: 14px; height: 14px; border-radius: 3px; display: inline-block; }
+.sw.mark { box-sizing: border-box; border: 3px solid var(--c); }
 
 .hover {
   min-height: 70px;

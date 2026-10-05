@@ -16,35 +16,48 @@
  * Toute main absente d'une action est jouée "fold" pour la fréquence restante.
  *
  * Chaque position a une entrée par profil de joueurs à la table (voir CLAUDE.md) :
- *   aggro : vs. aggro       gto : stratégie de base (GTO)      fish : vs. passif
+ *   aggro : vs. aggro       gto : vs. reg (stratégie de base)    lin : vs. reg linéaire
+ *   fish  : vs. passif
  *   nit   : vs. nit         supernit : vs. super nit
- * Un profil absent affiche la range GTO.
+ * Un profil absent n'est pas proposé dans le menu pour ce spot (la range gto est affichée à la place).
  *
  * Sections :
  *   open     : RANGES.open[héros][profil]                 (premier à parler)
  *   threebet : RANGES.threebet[héros][ouvreur][profil]    (un vilain a ouvert avant le héros)
- * "size" = taille de la relance du héros en BB (open ou 3bet).
+ *   vs3bet   : RANGES.vs3bet[héros][3betteur][profil]     (le héros a ouvert, un vilain après lui 3bet)
+ * "size" = taille de la relance du héros en BB (open, 3bet ou 4bet).
+ * '5bet' (dans threebet) = main 3bet puis 5bet all-in face à un 4bet ; à placer avant '3bet'.
  * Les actions sont appliquées dans l'ordre : une main à "AQs:0.5" en 3bet puis "AQs" en call
  * est 3bet 50 % / call 50 %.
+ *
+ * Marques (bordure sur la case, en plus des actions) : un spot peut avoir une clé de MARKS,
+ * ex. call4bet: 'AA, AQs' = mains à call face à un 4bet (les fréquences sont ignorées).
  */
 
 window.ACTIONS = {
-  raise: { label: 'Raise', color: '#e0523f' },
-  '3bet': { label: '3bet',  color: '#c2415f' },
+  // "text" = couleur du texte sur l'étiquette du siège (blanc par défaut).
+  raise: { label: 'Raise', color: '#e3b31b', text: '#1d232b' },
+  '3bet': { label: '3bet',  color: '#e3b31b', text: '#1d232b' },
+  '5bet': { label: '3bet / 5bet all-in', color: '#d32f2f' },
+  '4bet': { label: '4bet',  color: '#e0523f' },
   call:  { label: 'Call',  color: '#3fa96b' },
   limp:  { label: 'Limp',  color: '#3fa96b' },
   fold:  { label: 'Fold',  color: '#2f3a48' },
 };
 
+window.MARKS = {
+  call4bet: { label: 'Call 4bet', color: '#4f6df5' },
+};
+
 window.RANGES = {
   open: {
-    UTG: {
+    LJ: {
       gto: {
         size: 3,
         actions: {
           raise: '77+, ' +
                  'A2s+, K8s+, QTs+, JTs, ' +
-                 'ATo+, KJo+',
+                 'ATo+, KQo',
         },
       },
       fish: {
@@ -56,14 +69,6 @@ window.RANGES = {
         },
       },
       nit: {
-        size: 3,
-        actions: {
-          raise: '44+, ' +
-                 'A2s+, K5s+, Q9s+, JTs, T9s, 98s, 87s, 76s, 65s,' +
-                 'ATo+, KTo+, QJo',
-        },
-      },
-      supernit: {
         size: 3,
         actions: {
           raise: '44+, ' +
@@ -93,19 +98,11 @@ window.RANGES = {
         size: 3,
         actions: {
           raise: '44+, ' +
-                 'A2s+, K4s+, Q9s+, J9s+, T9s, 98s, 87s, 76s, 65s, 54s,' +
+                 'A2s+, K4s+, Q9s+, J9s+, T9s, 98s, 87s, 76s, 65s, ' +
                  'A9o+, KTo+, QTo+',
         },
       },
       nit: {
-        size: 3,
-        actions: {
-          raise: '33+, ' +
-                 'A2s+, K3s+, Q8s+, J9s+, T9s, 98s, 87s, 76s, 65s, 54s, ' +
-                 'A8o+, KTo+, QTo+',
-        },
-      },
-      supernit: {
         size: 3,
         actions: {
           raise: '33+, ' +
@@ -140,14 +137,6 @@ window.RANGES = {
         },
       },
       nit: {
-        size: 3,
-        actions: {
-          raise: '22+, ' +
-                 'A2s+, K2s+, Q6s+, J7s+, T7s+, 97s+, 87s, 76s, 65s, 54s, ' +
-                 'A5o+, K9o+, QTo+, JTo',
-        },
-      },
-      supernit: {
         size: 3,
         actions: {
           raise: '22+, ' +
@@ -249,10 +238,10 @@ window.RANGES = {
       },
     },
   },
-  // Ranges de base (GTO) : les autres profils reprennent la range GTO tant qu'ils ne sont pas définis.
+  // Seuls les profils définis ici sont proposés dans le menu pour le spot.
   threebet: {
     HJ: {
-      UTG: {
+      LJ: {
         gto: {
           size: 10,
           actions: {
@@ -268,13 +257,7 @@ window.RANGES = {
         nit: {
           size: 10,
           actions: {
-            '3bet': 'TT+, AQo+, KTs+, A4s+, KQo',
-          },
-        },
-        supernit: {
-          size: 10,
-          actions: {
-            '3bet': 'TT+, AQo+, KTs+, A4s+, KQo',
+            '3bet': 'TT+, AQo+, KTs+, A9s+, A8s-A6s:0.5, A5s, A4s, KQo',
           },
         },
         aggro: {
@@ -286,11 +269,11 @@ window.RANGES = {
       },
     },
     CO: {
-      UTG: {
+      LJ: {
         gto: {
           size: 10,
           actions: {
-            '3bet': 'JJ+, ATs+, AQo+, KJs+, A5s:0.5',
+            '3bet': 'JJ+, AJs+, AQo+, KJs+, A5s:0.5',
           },
         },
         fish: {
@@ -305,16 +288,10 @@ window.RANGES = {
             '3bet': '99+, AQo+, KTs+, A8s+, A5s, A4s, A7s:0.5, A6s:0.5, KQo, QJs',
           },
         },
-        supernit: {
-          size: 10,
-          actions: {
-            '3bet': '99+, AQo+, KTs+, A8s+, A5s, A4s, A7s:0.5, A6s:0.5, KQo, QJs',
-          },
-        },
         aggro: {
           size: 10,
           actions: {
-            '3bet': 'JJ+, ATs+, AQo+, KJs+, A5s:0.5',
+            '3bet': 'JJ+, AJs+, AQo+, KJs+, A5s:0.5',
           },
         },
       },
@@ -334,13 +311,7 @@ window.RANGES = {
         nit: {
           size: 10,
           actions: {
-            '3bet': '99+, AJo+, KTs+, A4s+, KQo, QJs',
-          },
-        },
-        supernit: {
-          size: 10,
-          actions: {
-            '3bet': '99+, AJo+, KTs+, A4s+, KQo, QJs',
+            '3bet': '99+, A9s+, A8s-A6s:0.5, A5s, A4s, AJo+, KTs+, KQo, QJs',
           },
         },
         aggro: {
@@ -352,37 +323,33 @@ window.RANGES = {
       },
     },
     BTN: {
-      UTG: {
+      LJ: {
         gto: {
           size: 10,
           actions: {
-            '3bet': 'QQ+, AJs+, AQo+, KQo, A5s:0.5, A4s:0.5, JJ:0.5, TT:0.5',
-            'call': 'ATs+, KTs+, QTs+, 88+, JTs'
+            '3bet': 'QQ+, AQs+, AQo+, KQo, QTs, JJ:0.5, TT:0.5, A5s:0.5, A4s:0.5',
+            call:   'JJ-88, AJs, ATs, KQs, KJs, KTs, QJs, JTs',
           },
         },
         fish: {
           size: 10,
           actions: {
-            '3bet': '88+, A8s+, AQo+, KTs+, QTs+, A5s, A4s, KQo, JTs',
+            '3bet': 'QQ+, AQs+, AQo+, KQo, QTs, JJ:0.5, TT:0.5, A9s, A5s, A4s, A8s:0.5, AJs:0.5, ATs:0.5, KQs:0.5, KJs:0.5, KTs:0.5, QJs:0.5, JTs:0.5, 99-88:0.5',
+            call:   'JJ-88, AJs, ATs, KQs, KJs, KTs, QJs, JTs',
           },
         },
         nit: {
           size: 10,
           actions: {
-            '3bet': '88+, A3s+, AQo+, KTs+, QTs+, KQo, JTs',
-          },
-        },
-        supernit: {
-          size: 10,
-          actions: {
-            '3bet': '88+, A3s+, AQo+, KTs+, QTs+, KQo, JTs',
+            '3bet': 'QQ+, AQs+, AQo+, KQo, QTs, JJ:0.5, TT:0.5, A9s, A8s, A5s, A4s, A7s:0.5, A6s:0.5, A3s:0.5, AJs:0.5, ATs:0.5, KQs:0.5, KJs:0.5, KTs:0.5, QJs:0.5, JTs:0.5, 99-88:0.5',
+            call:   'JJ-88, AJs, ATs, KQs, KJs, KTs, QJs, JTs',
           },
         },
         aggro: {
           size: 10,
           actions: {
-            '3bet': 'QQ+, AJs+, AQo+, KQo, A5s:0.5, A4s:0.5, JJ:0.5, TT:0.5',
-            'call': 'ATs+, KTs+, QTs+, 88+, JTs'
+            '3bet': 'QQ+, AQs+, AQo+, KQo, QTs, JJ:0.5, TT:0.5, A5s:0.5, A4s:0.5',
+            call:   'JJ-88, AJs, ATs, KQs, KJs, KTs, QJs, JTs',
           },
         },
       },
@@ -390,33 +357,29 @@ window.RANGES = {
         gto: {
           size: 10,
           actions: {
-            '3bet': 'QQ+,AQs+, AQo+, KQs:0.5, KQo, A5s:0.5, A4s:0.5, A9s:0.5, AJs:0.5, ',
-            'call': 'ATs+, KTs+, QJs, 88+, '
+            '3bet': 'QQ+, AQs+, AQo+, KQo, A5s:0.5, A4s:0.5',
+            call:   'JJ-88, AJs, ATs, KQs, KJs, KTs, QJs, JTs',
           },
         },
         fish: {
           size: 10,
           actions: {
-            '3bet': '88+, A8s+, AJo+, KTs+, K9s:0.5, QTs+, A5s, A4s, KQo, JTs:0.5',
+            '3bet': 'QQ+, AQs+, AQo+, KQo, AJo, A9s, A8s, QTs, A5s, A4s, K9s:0.5, JJ-88:0.5, AJs:0.5, ATs:0.5, KQs:0.5, KJs:0.5, KTs:0.5, QJs:0.5, JTs:0.5',
+            call:   'JJ-88, AJs, ATs, KQs, KJs, KTs, QJs, JTs',
           },
         },
         nit: {
           size: 10,
           actions: {
-            '3bet': '88+, A3s+, AJo+, KTs+, K9s:0.5, QTs+, KQo, JTs:0.5',
-          },
-        },
-        supernit: {
-          size: 10,
-          actions: {
-            '3bet': '88+, A3s+, AJo+, KTs+, K9s:0.5, QTs+, KQo, JTs:0.5',
+            '3bet': 'QQ+, AQs+, AQo+, KQo, AJo, A9s, A8s, QTs, A5s, A4s, K9s:0.5, JJ-88:0.5, AJs:0.5, ATs:0.5, KQs:0.5, KJs:0.5, KTs:0.5, QJs:0.5, JTs:0.5, A7s:0.5, A6s:0.5, A3s:0.5',
+            call:   'JJ-88, AJs, ATs, KQs, KJs, KTs, QJs, JTs',
           },
         },
         aggro: {
           size: 10,
           actions: {
-            '3bet': 'QQ+, AJs+, AQo+, KQs, KQo, A5s:0.5, A4s:0.5',
-            'call': 'ATs+, KTs+, QJs, 88+, '
+            '3bet': 'QQ+, AJs+, AQo+, KQs, KQo, A9s, A5s:0.5, A4s:0.5',
+            call:   'JJ-88, AJs, ATs, KQs, KJs, KTs, QJs, JTs',
           },
         },
       },
@@ -424,72 +387,66 @@ window.RANGES = {
         gto: {
           size: 10,
           actions: {
-            '3bet': 'TT+, AQs+, AJo+, KQo, A9s, A8s, K9s, ',
-            'call': 'ATs+, KTs+, QTs+, 66+, JTs, '
+            '5bet': 'QQ+, AKs, AKo, JJ:0.5',
+            '3bet': 'TT+, AQs+, A9s, A8s, K9s, AJo+, KQo',
+            call:   'AJs, ATs, KQs, KJs, KTs, QJs, QTs, JTs, 99-66',
           },
         },
         fish: {
           size: 10,
           actions: {
-            '3bet': '77+, A4s+, AJo+, ATo:0.5, KJo:0.5, KTo:0.5, QJo:0.5, K9s+, K8s:0.5, Q9s:0.5, J9s:0.5, T9s:0.5, QTs+, KQo, JTs',
+            '5bet': 'QQ+, AKs, AKo, JJ:0.5',
+            '3bet': 'TT+, AQs+, A9s, A8s, K9s, AJo+, KQo, AJs:0.5, ATs:0.5, KQs:0.5, KJs:0.5, KTs:0.5, QJs:0.5, QTs:0.5, JTs:0.5, 99-77:0.5, K8s:0.5, Q9s:0.5, J9s:0.5, T9s:0.5, KJo:0.5, QJo:0.5, ATo:0.5, KTo:0.5, A7s-A4s:0.5',
+            call:   'AJs, ATs, KQs, KJs, KTs, QJs, QTs, JTs, 99-66',
           },
         },
         nit: {
           size: 10,
           actions: {
-            '3bet': '77+, A2s+, AJo+, ATo:0.5, KJo:0.5, KTo:0.5, QJo:0.5, K9s+, K8s:0.5, Q9s:0.5, J9s:0.5, T9s:0.5, QTs+, KQo, JTs, 76s, 65s, 54s, ',
-          },
-        },
-        supernit: {
-          size: 10,
-          actions: {
-            '3bet': '77+, A2s+, AJo+, ATo:0.5, KJo:0.5, KTo:0.5, QJo:0.5, K9s+, K8s:0.5, Q9s:0.5, J9s:0.5, T9s:0.5, QTs+, KQo, JTs, 76s, 65s, 54s, ',
+            '5bet': 'QQ+, AKs, AKo, JJ:0.5',
+            '3bet': 'TT+, AQs+, A9s, A8s, K9s, AJo+, KQo, AJs:0.5, ATs:0.5, KQs:0.5, KJs:0.5, KTs:0.5, QJs:0.5, QTs:0.5, JTs:0.5, 99-77:0.5, K8s:0.5, Q9s:0.5, J9s:0.5, T9s:0.5, KJo:0.5, QJo:0.5, ATo:0.5, KTo:0.5, A7s-A2s, 76s, 65s, 54s',
+            call:   'AJs, ATs, KQs, KJs, KTs, QJs, QTs, JTs, 99-66',
           },
         },
         aggro: {
           size: 10,
+          call4bet: 'AA, AQs, AJs, KQs, JJ-99',
           actions: {
-            '3bet': 'TT+, AQs+, AJo+, KQo, A9s, A8s, K9s, ',
-            'call': 'ATs+, KTs+, QTs+, 66+, JTs, '
+            '5bet': 'QQ+, AKs, AKo, JJ:0.5',
+            '3bet': 'TT+, AQs+, A9s, A8s, K9s, AJo+, KQo',
+            call:   'AJs, ATs, KQs, KJs, KTs, QJs, QTs, JTs, 99-66',
           },
         },
       },
     },
     SB: {
-      UTG: {
+      LJ: {
         gto: {
           size: 10,
           actions: {
-            '3bet': 'JJ+, AQs+, AKo+, KQs, TT:0.5',
-            'call': 'TT:0.5, 99, QJs:0.5, KJs:0.5, KTs:0.5, AJs:0.5, ATs:0.5, '
+            '3bet': 'JJ+, AQs+, AKo, KQs, TT:0.5, AJs:0.5, ATs:0.5, KJs:0.5, KTs:0.5, QJs:0.5',
+            call:   'TT, 99, AJs, ATs, KJs, KTs, QJs',
           },
         },
         fish: {
           size: 10,
           actions: {
-            '3bet': 'JJ+, AQs+, AKo+, KQs, TT:0.5, AQo, ',
-            'call': 'TT:0.5, 99, QJs:0.5, KJs:0.5, KTs:0.5, AJs:0.5, ATs:0.5, '
+            '3bet': 'JJ+, AQs+, AKo, KQs, TT:0.5, AJs:0.5, ATs:0.5, KJs:0.5, KTs:0.5, QJs:0.5, AQo:0.5',
+            call:   'TT, 99, AJs, ATs, KJs, KTs, QJs',
           },
         },
         nit: {
           size: 10,
           actions: {
-            '3bet': 'JJ+, AQs+, AKo+, KQs, TT:0.5, AQo, A5s, ',
-            'call': 'TT:0.5, 99, QJs:0.5, KJs:0.5, KTs:0.5, AJs:0.5, ATs:0.5, '
-          },
-        },
-        supernit: {
-          size: 10,
-          actions: {
-            '3bet': 'JJ+, AQs+, AKo+, KQs, TT:0.5, AQo, A5s, ',
-            'call': 'TT:0.5, 99, QJs:0.5, KJs:0.5, KTs:0.5, AJs:0.5, ATs:0.5, '
+            '3bet': 'JJ+, AQs+, AKo, KQs, TT:0.5, AJs:0.5, ATs:0.5, KJs:0.5, KTs:0.5, QJs:0.5, AQo, A5s',
+            call:   'TT, 99, AJs, ATs, KJs, KTs, QJs',
           },
         },
         aggro: {
           size: 10,
           actions: {
-            '3bet': 'JJ+, AQs+, AKo+, KQs, TT:0.5',
-            'call': 'TT:0.5, 99, QJs:0.5, KJs:0.5, KTs:0.5, AJs:0.5, ATs:0.5, '
+            '3bet': 'JJ+, AQs+, AKo, KQs, TT:0.5, AJs:0.5, ATs:0.5, KJs:0.5, KTs:0.5, QJs:0.5',
+            call:   'TT, 99, AJs, ATs, KJs, KTs, QJs',
           },
         },
       },
@@ -497,36 +454,29 @@ window.RANGES = {
         gto: {
           size: 10,
           actions: {
-            '3bet': 'JJ+, AQs+, AKo+, KQs, TT:0.5',
-            'call': 'TT:0.5, 99, QJs:0.5, KJs:0.5, KTs:0.5, AJs:0.5, ATs:0.5, '
+            '3bet': 'JJ+, AQs+, AKo, KQs, TT:0.5, AJs:0.5, ATs:0.5, KJs:0.5, KTs:0.5, QJs:0.5',
+            call:   'TT, 99, AJs, ATs, KJs, KTs, QJs',
           },
         },
         fish: {
           size: 10,
           actions: {
-            '3bet': 'JJ+, AQs+, AKo+, KQs, TT:0.5, AQo, ',
-            'call': 'TT:0.5, 99, QJs:0.5, KJs:0.5, KTs:0.5, AJs:0.5, ATs:0.5, '
+            '3bet': 'JJ+, AQs+, AKo, KQs, TT:0.5, AJs:0.5, ATs:0.5, KJs:0.5, KTs:0.5, QJs:0.5, AQo:0.5',
+            call:   'TT, 99, AJs, ATs, KJs, KTs, QJs',
           },
         },
         nit: {
           size: 10,
           actions: {
-            '3bet': 'JJ+, AQs+, AKo+, KQs, TT:0.5, AQo, A5s, KQo:0.5, ',
-            'call': 'TT:0.5, 99, QJs:0.5, KJs:0.5, KTs:0.5, AJs:0.5, ATs:0.5, '
-          },
-        },
-        supernit: {
-          size: 10,
-          actions: {
-            '3bet': 'JJ+, AQs+, AKo+, KQs, TT:0.5, AQo, A5s, KQo:0.5, ',
-            'call': 'TT:0.5, 99, QJs:0.5, KJs:0.5, KTs:0.5, AJs:0.5, ATs:0.5, '
+            '3bet': 'JJ+, AQs+, AKo, KQs, TT:0.5, AJs:0.5, ATs:0.5, KJs:0.5, KTs:0.5, QJs:0.5, AQo, A5s, KQo:0.5',
+            call:   'TT, 99, AJs, ATs, KJs, KTs, QJs',
           },
         },
         aggro: {
           size: 10,
           actions: {
-            '3bet': 'JJ+, AQs+, AKo+, KQs, TT:0.5',
-            'call': 'TT:0.5, 99, QJs:0.5, KJs:0.5, KTs:0.5, AJs:0.5, ATs:0.5, '
+            '3bet': 'JJ+, AQs+, AKo, KQs, TT:0.5, AJs:0.5, ATs:0.5, KJs:0.5, KTs:0.5, QJs:0.5',
+            call:   'TT, 99, AJs, ATs, KJs, KTs, QJs',
           },
         },
       },
@@ -534,36 +484,29 @@ window.RANGES = {
         gto: {
           size: 10,
           actions: {
-            '3bet': '99+, AQs+, AQo+, KQs, AJs:0.5, ATs:0.5, KJs:0.5, KTs:0.5, QJs:0.5, ',
-            'call': '88, QJs:0.5, KJs:0.5, KTs:0.5, AJs:0.5, ATs:0.5, QTs, JTs, '
+            '3bet': '99+, AQs+, KQs, AQo+, AJs:0.5, ATs:0.5, KJs:0.5, KTs:0.5, QJs:0.5',
+            call:   'AJs, ATs, KJs, KTs, QJs, QTs, JTs, 88',
           },
         },
         fish: {
           size: 10,
           actions: {
-            '3bet': '99+, AQs+, AJo+, KQs, AJs:0.5, ATs:0.5, KJs:0.5, KTs:0.5, QJs:0.5, KQo, ',
-            'call': '88, QJs:0.5, KJs:0.5, KTs:0.5, AJs:0.5, ATs:0.5, QTs, JTs, '
+            '3bet': '99+, AQs+, KQs, AQo+, AJs:0.5, ATs:0.5, KJs:0.5, KTs:0.5, QJs:0.5, KQo:0.5, AJo:0.5',
+            call:   'AJs, ATs, KJs, KTs, QJs, QTs, JTs, 88',
           },
         },
         nit: {
           size: 10,
           actions: {
-            '3bet': '99+, AQs+, AJo+, KQs, AJs:0.5, ATs:0.5, KJs:0.5, KTs:0.5, QJs:0.5, KQo, A9s, A5s, ',
-            'call': '88, QJs:0.5, KJs:0.5, KTs:0.5, AJs:0.5, ATs:0.5, QTs, JTs, '
-          },
-        },
-        supernit: {
-          size: 10,
-          actions: {
-            '3bet': '99+, AQs+, AJo+, KQs, AJs:0.5, ATs:0.5, KJs:0.5, KTs:0.5, QJs:0.5, KQo, A9s, A5s, ',
-            'call': '88, QJs:0.5, KJs:0.5, KTs:0.5, AJs:0.5, ATs:0.5, QTs, JTs, '
+            '3bet': '99+, AQs+, KQs, AQo+, AJs:0.5, ATs:0.5, KJs:0.5, KTs:0.5, QJs:0.5, KQo, AJo, A9s, A5s',
+            call:   'AJs, ATs, KJs, KTs, QJs, QTs, JTs, 88',
           },
         },
         aggro: {
           size: 10,
           actions: {
-            '3bet': '99+, AQs+, AQo+, KQs, AJs:0.5, ATs:0.5, KJs:0.5, KTs:0.5, QJs:0.5, ',
-            'call': '88, QJs:0.5, KJs:0.5, KTs:0.5, AJs:0.5, ATs:0.5, QTs, JTs, '
+            '3bet': '99+, AQs+, KQs, AQo+, AJs:0.5, ATs:0.5, KJs:0.5, KTs:0.5, QJs:0.5',
+            call:   'AJs, ATs, KJs, KTs, QJs, QTs, JTs, 88',
           },
         },
       },
@@ -571,47 +514,59 @@ window.RANGES = {
         gto: {
           size: 10,
           actions: {
-            '3bet': 'TT+, AJs+, AJo+, KJo+, KQs, ATs:0.5, A9s:0.5,KJs:0.5, KTs:0.5, QJs:0.5, QTs:0.5, JTs:0.5, A8s, A7s, A5s, A4s, 99:0.5, 88:0.5, ',
-            'call': '99:0.5, 88:0.5, 77, 66, QJs:0.5, KJs:0.5, KTs:0.5, AJs:0.5, ATs:0.5, QTs, JTs, A9s:0.5,  '
+            '5bet': 'JJ+, AKs, AKo',
+            '3bet': 'TT+, AQs+, AJs, A8s, A7s, A5s, A4s, KQs, AJo+, KJo+, ATs:0.5, A9s:0.5, KJs:0.5, KTs:0.5, QJs:0.5, QTs:0.5, JTs:0.5, 99-88:0.5',
+            call:   'ATs, A9s, KJs, KTs, QJs, QTs, JTs, 99-66',
           },
         },
         fish: {
           size: 10,
           actions: {
-            '3bet': 'TT+, AJs+, AJo+, KJo+, KQs, ATs:0.5, A9s:0.5,KJs:0.5, KTs:0.5, QJs:0.5, QTs:0.5, JTs:0.5, A8s, A7s, A5s, A4s, 99:0.5, 88:0.5, 77:0.5, ATo, K9s, Q9s, J9s, T9s,  ',
-            'call': '99:0.5, 88:0.5, 77:0.5, 66, QJs:0.5, KJs:0.5, KTs:0.5, AJs:0.5, ATs:0.5, QTs, JTs, A9s:0.5, '
+            '5bet': 'JJ+, AKs, AKo',
+            '3bet': 'TT+, AQs+, AJs, A8s, A7s, A5s, A4s, KQs, AJo+, KJo+, ATs:0.5, A9s:0.5, KJs:0.5, KTs:0.5, QJs:0.5, QTs:0.5, JTs:0.5, 99-88:0.5, Q9s, J9s, T9s, 77:0.5, ATo:0.5',
+            call:   'ATs, A9s, KJs, KTs, QJs, QTs, JTs, 99-66',
           },
         },
         nit: {
           size: 10,
           actions: {
-            '3bet': 'TT+, AJs+, AJo+, KJo+, KQs, ATs:0.5, A9s:0.5,KJs:0.5, KTs:0.5, QJs:0.5, QTs:0.5, JTs:0.5, A8s-A2s, 99:0.5, 88:0.5, 77:0.5, ATo, K9s, Q9s, J9s, T9s, 65s, KTo:0.5, QJo:0.5, K8s,  ',
-            'call': '99:0.5, 88:0.5, 77:0.5, 66, QJs:0.5, KJs:0.5, KTs:0.5, AJs:0.5, ATs:0.5, QTs, JTs, A9s:0.5, '
-          },
-        },
-        supernit: {
-          size: 10,
-          actions: {
-            '3bet': 'TT+, AJs+, AJo+, KJo+, KQs, ATs:0.5, A9s:0.5,KJs:0.5, KTs:0.5, QJs:0.5, QTs:0.5, JTs:0.5, A8s-A2s, 99:0.5, 88:0.5, 77:0.5, ATo, K9s, Q9s, J9s, T9s, 65s, KTo:0.5, QJo:0.5, K8s,  ',
-            'call': '99:0.5, 88:0.5, 77:0.5, 66, QJs:0.5, KJs:0.5, KTs:0.5, AJs:0.5, ATs:0.5, QTs, JTs, A9s:0.5, '
+            '5bet': 'JJ+, AKs, AKo',
+            '3bet': 'TT+, AQs+, AJs, A8s, A7s, A5s, A4s, KQs, AJo+, KJo+, ATs:0.5, A9s:0.5, KJs:0.5, KTs:0.5, QJs:0.5, QTs:0.5, JTs:0.5, 99-88:0.5, Q9s, J9s, T9s, 77:0.5, ATo:0.5, A6s, A3s, A2s, K9s, K8s, 65s, ATo, QJo:0.5, KTo:0.5',
+            call:   'ATs, A9s, KJs, KTs, QJs, QTs, JTs, 99-66',
           },
         },
         aggro: {
           size: 10,
+          call4bet: 'AA, AQs, AJs, KQs, TT-99',
           actions: {
-            '3bet': 'TT+, AJs+, AJo+, KJo+, KQs, ATs:0.5, A9s:0.5,KJs:0.5, KTs:0.5, QJs:0.5, QTs:0.5, JTs:0.5, A8s, A7s, A5s, A4s, 99:0.5, 88:0.5, ',
-            'call': '99:0.5, 88:0.5, 77, 66, QJs:0.5, KJs:0.5, KTs:0.5, AJs:0.5, ATs:0.5, QTs, JTs, A9s:0.5,  '
+            '5bet': 'JJ+, AKs, AKo',
+            '3bet': 'TT+, AQs+, AJs, A8s, A7s, A5s, A4s, KQs, AJo+, KJo+, ATs:0.5, A9s:0.5, KJs:0.5, KTs:0.5, QJs:0.5, QTs:0.5, JTs:0.5, 99-88:0.5, K9s, ATo',
+            call:   'ATs, A9s, KJs, KTs, QJs, QTs, JTs, 99-66',
           },
         },
       },
     },
     BB: {
-      UTG: {
+      LJ: {
         gto: {
           size: 12,
           actions: {
-            '3bet': 'QQ+, AK, A5s-A4s:0.5, KQs:0.3',
-            call:   'JJ-22, AQs-A2s, K9s+, Q9s+, J9s+, T8s+, 97s+, 87s, 76s, 65s, 54s, AQo-ATo, KJo+, QJo',
+            '3bet': 'KK+, AKs, A4s-A2s, K7s-K6s, Q9s, 65s, QQ:0.5, AQs:0.5, AKo:0.5',
+            call:   'QQ-22, AQs-A5s, K8s+, QTs+, J9s+, T8s+, 97s+, 86s+, 75s+, 64s, 54s, AJo+, KQo',
+          },
+        },
+        aggro: {
+          size: 12,
+          actions: {
+            '3bet': 'QQ+, AKs, A4s-A2s, K7s-K6s, Q9s, 65s, AKo, AQs:0.5',
+            call:   'JJ-22, AQs-A5s, K9s+, QTs+, J9s+, T9s, 98s, 87s, 76s, 54s, AQo-AJo, KQo',
+          },
+        },
+        fish: {
+          size: 12,
+          actions: {
+            '3bet': 'KK+, AKs, A4s-A2s, K7s-K6s, Q9s, 65s, QQ-JJ:0.5, AQs:0.5, AQo+:0.5',
+            call:   'QQ-22, AQs-A5s, K8s+, K5s-K4s, QTs+, Q8s, J8s+, T8s+, 97s+, 86s+, 75s+, 64s, 53s+, 43s, ATo+, KJo+',
           },
         },
       },
@@ -619,8 +574,22 @@ window.RANGES = {
         gto: {
           size: 12,
           actions: {
-            '3bet': 'JJ+, AK, AQs, A5s-A3s:0.5, KQs:0.5',
-            call:   'TT-22, AJs-A2s, K7s+, Q8s+, J8s+, T8s+, 97s+, 86s+, 75s+, 65s, 54s, AQo-A9o, KTo+, QTo+, JTo',
+            '3bet': 'QQ+, AKs, A4s-A2s, K6s-K5s, Q8s, 65s, AKo, JJ:0.5, AQs:0.5, KQo:0.5',
+            call:   'JJ-22, AQs-A5s, K7s+, Q9s+, J8s+, T8s+, 97s+, 86s+, 75s+, 64s, 54s, AQo-ATo, KJo+',
+          },
+        },
+        aggro: {
+          size: 12,
+          actions: {
+            '3bet': 'QQ+, AKs, A4s-A2s, K6s-K5s, Q8s, 65s, AKo, JJ:0.5, AQs:0.5, KQo:0.5',
+            call:   'JJ-22, AQs-A5s, K9s+, Q9s+, J9s+, T9s, 98s, 87s, 76s, 54s, AQo-AJo, KQo',
+          },
+        },
+        fish: {
+          size: 12,
+          actions: {
+            '3bet': 'QQ+, AKs, A4s-A2s, K6s-K5s, Q8s, 65s, AKo, JJ:0.5, AQs:0.5, AQo:0.5, KQo:0.5',
+            call:   'JJ-22, AQs-A5s, K7s+, K4s-K3s, Q9s+, J8s+, T7s+, 96s+, 86s+, 75s+, 64s, 53s+, 43s, AQo-ATo, KTo+, QJo',
           },
         },
       },
@@ -628,19 +597,53 @@ window.RANGES = {
         gto: {
           size: 12,
           actions: {
-            '3bet': 'TT+, AQ+, AJs, A5s-A2s:0.5, KQs, K9s:0.3, 76s:0.3',
-            call:   '99-22, ATs-A2s, K2s+, Q6s+, J7s+, T7s+, 96s+, 85s+, 75s+, 64s+, 54s, ' +
-                    'AJo-A8o, KTo+, QTo+, JTo, T9o',
+            '3bet': 'JJ+, AQs+, A3s-A2s, K3s-K2s, Q4s, J7s, AKo, TT:0.5, AJo:0.5, KQo:0.5',
+            call:   'TT-22, AJs-A4s, K4s+, Q5s+, J8s+, T8s+, 97s+, 86s+, 75s+, 64s+, 54s, 43s, AQo-ATo, KTo+, QJo',
+          },
+        },
+        aggro: {
+          size: 12,
+          actions: {
+            '3bet': 'JJ+, AQs+, A3s-A2s, K3s-K2s, Q4s, J7s, AKo, TT:0.5, AJo:0.5, KQo:0.5',
+            call:   'TT-22, AJs-A4s, K4s+, Q8s+, J8s+, T8s+, 98s, 87s, 76s, 65s, 54s, AQo-ATo, KJo+',
+          },
+        },
+        fish: {
+          size: 12,
+          actions: {
+            '3bet': 'JJ+, AQs+, A3s-A2s, K3s-K2s, Q4s, J7s, AKo, TT:0.5, AQo-AJo:0.5, KQo:0.5',
+            call:   'TT-22, AJs-A4s, K4s+, Q5s+, J8s+, T7s+, 96s+, 85s+, 75s+, 64s+, 53s+, 43s, AQo-A9o, KTo+, QTo+, JTo',
           },
         },
       },
       BTN: {
+        // supernit : 3bet = cases à bordure jaune du chart, le reste de la range reg est payé.
         gto: {
           size: 12,
           actions: {
-            '3bet': '99+, AJ+, ATs, A5s-A2s:0.5, KJs+, K9s:0.5, QJs:0.5, J9s:0.5, T8s:0.5, 65s:0.5, KQo:0.5',
-            call:   '88-22, A9s-A2s, K2s+, Q2s+, J4s+, T6s+, 95s+, 85s+, 74s+, 63s+, 53s+, 43s, ' +
-                    'ATo-A2o, K7o+, Q8o+, J8o+, T8o+, 98o, 87o',
+            '3bet': '99+, AJs+, A5s, KJs+, K2s, Q2s, JTs, J5s, T9s, T6s, 65s, 54s, AJo+, A4o-A3o, KQo',
+            call:   '88-22, ATs-A6s, A4s-A2s, KTs-K3s, Q3s+, J9s-J6s, T8s-T7s, 96s+, 85s+, 75s+, 64s, 53s, 43s, ATo-A5o, KJo-K9o, QTo+, JTo',
+          },
+        },
+        aggro: {
+          size: 12,
+          actions: {
+            '3bet': '99+, AJs+, A5s, KJs+, K2s, Q2s, JTs, J5s, T9s, T6s, 65s, 54s, AJo+, A4o-A3o, KQo',
+            call:   '88-22, ATs-A6s, A4s-A2s, KTs-K3s, Q4s+, J9s-J8s, T8s, 97s+, 86s+, 75s+, 64s, ATo-A8o, KJo-KTo, QTo+, JTo',
+          },
+        },
+        fish: {
+          size: 12,
+          actions: {
+            '3bet': '77+, A9s+, A5s, KTs+, K2s, QTs+, Q2s, JTs, J5s, T9s, T6s, 65s, 54s, AJo+, A4o-A3o, KQo',
+            call:   '66-22, A8s-A6s, A4s-A2s, K9s-K3s, Q9s-Q3s, J9s-J6s, T8s-T7s, 96s+, 85s+, 75s+, 64s, 53s, 43s, ATo-A5o, KJo-K9o, Q9o+, J9o+, T9o',
+          },
+        },
+        supernit: {
+          size: 12,
+          actions: {
+            '3bet': 'JJ+, AQs+, Q3s-Q2s, J4s-J3s, AKo, A6o-A3o, K9o-K7o, QTo-Q9o',
+            call:   'TT-22, AJs-A2s, K2s+, Q4s+, J5s+, T6s+, 96s+, 85s+, 75s+, 64s+, 53s+, 43s, AQo-A7o, KTo+, QJo, JTo',
           },
         },
       },
@@ -648,9 +651,290 @@ window.RANGES = {
         gto: {
           size: 9,
           actions: {
-            '3bet': '88+, AT+, A5s-A2s, KTs+, QJs, K9s:0.5, 76s:0.5, KQo',
-            call:   '77-22, A9s-A6s, K2s+, Q2s+, J5s+, T6s+, 96s+, 85s+, 74s+, 64s+, 53s+, 43s, ' +
-                    'A9o-A2o, K8o+, Q9o+, J9o+, T9o, 98o',
+            '3bet': '99+, AJs+, A5s-A4s, KJs+, JTs, J4s-J2s, T9s, T5s-T3s, 76s, 65s, 54s, AQo+, A5o-A3o, K9o-K7o, Q9o, J9o',
+            call: '88-22, ATs-A6s, A3s-A2s, KTs-K2s, Q2s+, J9s-J5s, T8s-T6s, 95s+, 85s+, 75s-74s, 64s-63s, 53s, 43s, AJo-A6o, KTo+, QTo+, JTo, T9o',
+          },
+        },
+        lin: {
+          size: 9,
+          actions: {
+            '3bet': '88+, ATs+, A5s, KTs+, QJs, J9s+, T8s+, 98s, 87s, 76s, 65s, AJo+, KJo+',
+            call: '77-22, A9s-A6s, A4s-A2s, K9s-K2s, QTs-Q2s, J8s-J2s, T7s-T3s, 97s-95s, 86s-85s, 75s-74s, 64s-63s, 53s+, 43s, ATo-A3o, KTo-K9o, Q9o+, J9o+, T9o',
+          },
+        },
+        aggro: {
+          size: 9,
+          actions: {
+            '3bet': 'TT+, AJs+, KQs, J9s, T8s+, 97s+, 87s, 76s, 65s, AQo+',
+            call: '99-22, ATs-A2s, KJs-K2s, Q4s+, JTs, J8s-J5s, T7s-T6s, 86s, 75s, 64s, 54s, 43s, AJo-A8o, KTo+, QTo+, JTo',
+          },
+        },
+        fish: {
+          size: 9,
+          actions: {
+            '3bet': '77+, A9s+, K9s+, Q9s+, J9s+, T9s, AJo+, KJo+, QJo',
+            call: '66-22, A8s-A2s, K8s-K2s, Q8s-Q2s, J8s-J2s, T8s-T3s, 95s+, 84s+, 74s+, 63s+, 52s+, 42s+, 32s, ATo-A3o, KTo-K7o, QTo-Q8o, J8o+, T8o+, 98o, 87o, 76o',
+          },
+        },
+        nit: {
+          size: 9,
+          actions: {
+            '3bet': 'TT+, AQs+, AKo, A4o-A2o, K8o-K5o, Q8o, J8o',
+            call: '99-22, AJs-A2s, K2s+, Q2s+, J2s+, T3s+, 95s+, 85s+, 74s+, 63s+, 53s+, 43s, AQo-A5o, K9o+, Q9o+, J9o+, T9o',
+          },
+        },
+      },
+    },
+  },
+  // Défense face à un 3bet : le héros a ouvert, un vilain placé après lui 3bet.
+  // Seuls les profils définis ici sont proposés dans le menu pour le spot.
+  vs3bet: {
+    LJ: {
+      HJ: {
+        gto: {
+          size: 24,
+          actions: {
+            '4bet': 'AA, KK, AKs, AKo, QQ, AJs:0.5, ATs, KQs, KJs, KTs:0.5, AQo:0.5',
+            call:   'JJ-99, AQs, AJs',
+          },
+        },
+        aggro: {
+          size: 24,
+          actions: {
+            '4bet': 'AA, KK, AKs, AKo, QQ, AJs:0.5, ATs:0.5, KQs:0.5, KJs:0.5, KTs:0.5, AQo:0.5',
+            call:   'JJ-99, AQs, AJs, ATs, KQs, KJs',
+          },
+        },
+        nit: {
+          size: 24,
+          actions: {
+            '4bet': 'AA, KK, AKs, AKo:0.5, QQ:0.5, AJs:0.5, ATs, KQs, KJs, KTs:0.5, AQo:0.5',
+            call:   'AKo, QQ-99, AQs, AJs, 87s, 76s, 65s',
+          },
+        },
+        fish: {
+          size: 24,
+          actions: {
+            '4bet': 'AA, KK, AKs',
+            call:   'AKo, QQ-88, AQs, AJs, ATs, KQs, KJs, KTs, AQo',
+          },
+        },
+      },
+      CO: {
+        gto: {
+          size: 24,
+          actions: {
+            '4bet': 'AA, KK, AKs, AKo, QQ, AJs:0.5, ATs, KQs, KJs, KTs:0.5, AQo:0.5',
+            call:   'JJ-99, AQs, AJs',
+          },
+        },
+        aggro: {
+          size: 24,
+          actions: {
+            '4bet': 'AA, KK, AKs, AKo, QQ, AJs:0.5, ATs:0.5, KQs:0.5, KJs:0.5, KTs:0.5, AQo:0.5',
+            call:   'JJ-99, AQs, AJs, ATs, KQs, KJs',
+          },
+        },
+        nit: {
+          size: 24,
+          actions: {
+            '4bet': 'AA, KK, AKs, AKo:0.5, QQ:0.5, AJs:0.5, ATs, KQs, KJs, KTs:0.5, AQo:0.5',
+            call:   'AKo, QQ-99, AQs, AJs, 87s, 76s, 65s',
+          },
+        },
+        fish: {
+          size: 24,
+          actions: {
+            '4bet': 'AA, KK, AKs',
+            call:   'AKo, QQ-88, AQs, AJs, ATs, KQs, KJs, KTs, AQo',
+          },
+        },
+      },
+      BTN: {
+        gto: {
+          size: 24,
+          actions: {
+            '4bet': 'AA, KK, AKs, AKo, QQ, JJ:0.5, AJs:0.5, ATs, KQs:0.5, KJs, KTs:0.5, QJs, AQo:0.5, KQo:0.5',
+            call:   'JJ-99, AQs, AJs, KQs',
+          },
+        },
+        aggro: {
+          size: 24,
+          actions: {
+            '4bet': 'AA, KK, AKs, AKo, QQ, JJ:0.5, AJs:0.5, ATs:0.5, KQs:0.5, KJs:0.5, KTs:0.5, QJs:0.5, AQo:0.5, KQo:0.5',
+            call:   'JJ-99, AQs, AJs, ATs, KQs, KJs, QJs',
+          },
+        },
+        nit: {
+          size: 24,
+          actions: {
+            '4bet': 'AA, KK, AKs, AKo:0.5, QQ:0.5, JJ:0.5, AJs:0.5, ATs, KQs:0.5, KJs, KTs:0.5, QJs, AQo:0.5, KQo:0.5',
+            call:   'AKo, QQ-99, AQs, AJs, KQs, 87s, 76s, 65s',
+          },
+        },
+        fish: {
+          size: 24,
+          actions: {
+            '4bet': 'AA, KK, AKs, AQo:0.5, KQo:0.5',
+            call:   'AKo, QQ-88, AQs, AJs, ATs, KQs, KJs, KTs, QJs',
+          },
+        },
+      },
+      SB: {
+        gto: {
+          size: 22,
+          actions: {
+            '4bet': 'AA, KK, AKs, AKo:0.5, QQ:0.5, JJ:0.5, AJs, ATs, KTs:0.5, AQo:0.5',
+            call:   'AKo, QQ-99, AQs, KQs',
+          },
+        },
+        aggro: {
+          size: 22,
+          actions: {
+            '4bet': 'AA, KK, AKs, AKo:0.5, QQ:0.5, JJ:0.5, AJs:0.5, ATs:0.5, KTs:0.5, AQo:0.5',
+            call:   'AKo, QQ-99, AQs, AJs, ATs, KQs, KJs',
+          },
+        },
+        nit: {
+          size: 22,
+          actions: {
+            '4bet': 'AA, KK, AKs, AKo:0.5, QQ:0.5, JJ:0.5, AJs, ATs, KTs:0.5, AQo:0.5',
+            call:   'AKo, QQ-99, AQs, KQs, 87s, 76s, 65s',
+          },
+        },
+        fish: {
+          size: 22,
+          actions: {
+            '4bet': 'AA, KK, AQo:0.5',
+            call:   'AKs, AKo, QQ-88, AQs, AJs, ATs, KQs, KJs, KTs',
+          },
+        },
+      },
+      BB: {
+        gto: {
+          size: 22,
+          actions: {
+            '4bet': 'AA, KK, AKs, AKo:0.5, QQ:0.5, JJ:0.5, AJs, ATs, KTs:0.5, AQo:0.5',
+            call:   'AKo, QQ-99, AQs, KQs',
+          },
+        },
+        aggro: {
+          size: 22,
+          actions: {
+            '4bet': 'AA, KK, AKs, AKo:0.5, QQ:0.5, JJ:0.5, AJs:0.5, ATs:0.5, KTs:0.5, AQo:0.5',
+            call:   'AKo, QQ-99, AQs, AJs, ATs, KQs, KJs',
+          },
+        },
+        nit: {
+          size: 22,
+          actions: {
+            '4bet': 'AA, KK, AKs, AKo:0.5, QQ:0.5, JJ:0.5, AJs, ATs, KTs:0.5, AQo:0.5',
+            call:   'AKo, QQ-99, AQs, KQs, 87s, 76s, 65s',
+          },
+        },
+        fish: {
+          size: 22,
+          actions: {
+            '4bet': 'AA, KK, AQo:0.5',
+            call:   'AKs, AKo, QQ-88, AQs, AJs, ATs, KQs, KJs, KTs',
+          },
+        },
+      },
+    },
+    HJ: {
+      CO: {
+        gto: {
+          size: 24,
+          actions: {
+            '4bet': 'QQ+, AKs, AKo:0.7, JJ:0.3, A5s, A4s:0.5',
+            call:   'JJ-77, AQs-A9s, AQo:0.7, KQs-KTs, QJs, QTs, JTs, T9s, 98s, AKo',
+          },
+        },
+      },
+      BTN: {
+        gto: {
+          size: 24,
+          actions: {
+            '4bet': 'QQ+, AKs, AKo:0.7, JJ:0.3, A5s, A4s:0.5',
+            call:   'JJ-77, AQs-A9s, AQo:0.7, KQs-KTs, QJs, QTs, JTs, T9s, 98s, AKo',
+          },
+        },
+      },
+      SB: {
+        gto: {
+          size: 22,
+          actions: {
+            '4bet': 'QQ+, AKs, AKo:0.6, JJ:0.3, A5s, A4s:0.5',
+            call:   'JJ-55, AQs-A8s, AQo, AJo:0.5, KQs-KTs, KQo:0.5, QJs, QTs, JTs, T9s, 98s, 87s, AKo',
+          },
+        },
+      },
+      BB: {
+        gto: {
+          size: 22,
+          actions: {
+            '4bet': 'QQ+, AKs, AKo:0.6, JJ:0.3, A5s, A4s:0.5',
+            call:   'JJ-55, AQs-A8s, AQo, AJo:0.5, KQs-KTs, KQo:0.5, QJs, QTs, JTs, T9s, 98s, 87s, AKo',
+          },
+        },
+      },
+    },
+    CO: {
+      BTN: {
+        gto: {
+          size: 24,
+          actions: {
+            '4bet': 'JJ+, AKs, AQs:0.3, AKo, TT:0.3, A5s, A4s, KQs:0.3',
+            call:   'TT-66, AQs-A8s, AQo, AJo:0.5, KQs-K9s, KQo:0.5, QJs, QTs, JTs, J9s, T9s, 98s, 87s, 76s',
+          },
+        },
+      },
+      SB: {
+        gto: {
+          size: 22,
+          actions: {
+            '4bet': 'JJ+, AKs, AQs:0.3, AKo, TT:0.3, A5s, A4s, KQs:0.3',
+            call:   'TT-44, AQs-A7s, AQo, AJo, KQs-K9s, KQo, QJs, Q9s, JTs, J9s, T9s, T8s, 98s, 87s, 76s, 65s',
+          },
+        },
+      },
+      BB: {
+        gto: {
+          size: 22,
+          actions: {
+            '4bet': 'JJ+, AKs, AQs:0.3, AKo, TT:0.3, A5s, A4s, KQs:0.3',
+            call:   'TT-44, AQs-A7s, AQo, AJo, KQs-K9s, KQo, QJs, Q9s, JTs, J9s, T9s, T8s, 98s, 87s, 76s, 65s',
+          },
+        },
+      },
+    },
+    BTN: {
+      SB: {
+        gto: {
+          size: 22,
+          actions: {
+            '4bet': 'TT+, AKs, AQs:0.5, AKo, AQo:0.3, A5s, A4s, A3s:0.5, K9s:0.3, 76s:0.3',
+            call:   '99-22, AQs-A6s, AQo, AJo, ATo:0.5, KQs-K8s, KQo, KJo:0.5, QJs-Q9s, JTs, J9s, T9s, T8s, 98s, 97s, 87s, 86s, 76s, 65s, 54s',
+          },
+        },
+      },
+      BB: {
+        gto: {
+          size: 22,
+          actions: {
+            '4bet': 'TT+, AKs, AQs:0.5, AKo, AQo:0.3, A5s, A4s, A3s:0.5, K9s:0.3, 76s:0.3',
+            call:   '99-22, AQs-A6s, AQo, AJo, ATo:0.5, KQs-K8s, KQo, KJo:0.5, QJs-Q9s, JTs, J9s, T9s, T8s, 98s, 97s, 87s, 86s, 76s, 65s, 54s',
+          },
+        },
+      },
+    },
+    SB: {
+      BB: {
+        gto: {
+          size: 24,
+          actions: {
+            '4bet': 'TT+, AKs, AQs:0.5, AKo, AQo:0.3, A5s, A4s, A3s:0.5, K9s:0.3, 65s:0.3',
+            call:   '99-22, AQs-A6s, AQo, AJo, ATo:0.5, KQs-K8s, KQo, KJo:0.5, QJs-Q9s, JTs, J9s, T9s, T8s, 98s, 87s, 76s, 65s, 54s',
           },
         },
       },

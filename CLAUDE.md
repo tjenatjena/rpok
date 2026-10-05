@@ -9,7 +9,7 @@ S'ouvre directement via `index.html`. Les ranges sont en lecture seule dans l'in
 
 ## Parcours utilisateur
 
-1. Sélecteur de position du héros en haut (pas d'écran d'accueil : UTG affiché par défaut). C'est le seul moyen de changer de héros.
+1. Sélecteur de position du héros en haut (pas d'écran d'accueil : LJ affiché par défaut). C'est le seul moyen de changer de héros.
 2. Table 6-max (héros toujours en bas) avec, à côté, le menu du profil de joueurs à la table.
    Cliquer sur le siège d'un vilain ouvre un menu pour donner son action (Aucune / Raise / Call / 3bet). Le siège du héros n'est pas cliquable.
 3. Grille de range en dessous (façon Suited / GTO Wizard) avec fréquences mixtes.
@@ -20,19 +20,21 @@ Le spot est déduit des actions des vilains (`currentSpot()` dans `js/app.js`) :
 
 - aucune action → **open** : `RANGES.open[héros][profil]`
 - un seul vilain avant le héros fait Raise → **3bet** face à un open : `RANGES.threebet[héros][ouvreur][profil]` (actions `'3bet'` et `call`)
+- un seul vilain après le héros fait 3bet → **défense vs 3bet** (le héros a ouvert) : `RANGES.vs3bet[héros][3betteur][profil]` (actions `'4bet'` et `call`)
 - toute autre séquence → « spot non couvert » (grille vide)
 
 ## Profil de la table
 
 Le menu à côté de la table choisit le profil des joueurs à la table, qui fait varier les ranges.
-Tous les profils sont disponibles à toutes les positions.
+Le menu ne montre que les profils qui ont une range pour le spot affiché (vs. reg toujours).
 
 | Clé (`js/ranges.js`) | Libellé | Ancien indice |
 |---|---|---|
 | `aggro` | vs. aggro | -1 |
-| `gto` | GTO (stratégie de base, par défaut) | 0 |
+| `gto` | vs. reg (stratégie de base, par défaut) | 0 |
+| `lin` | vs. reg linéaire | — |
 | `fish` | vs. passif | +1 |
 | `nit` | vs. nit | +2 |
 | `supernit` | vs. super nit | +3 |
 
-Dans `js/ranges.js`, chaque position a une entrée par profil. Si un profil n'est pas défini, la range `gto` est affichée avec un avertissement.
+Dans `js/ranges.js`, chaque spot a une entrée par profil. Un profil absent n'apparaît pas dans le menu pour ce spot ; si c'était le profil choisi, la range `gto` est affichée (le choix revient sur les spots qui le définissent). Ne pas dupliquer une range identique à un autre profil : ne mettre que les profils qui diffèrent.
