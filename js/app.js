@@ -36,13 +36,14 @@
   //   aucune action                       -> open
   //   un seul vilain avant le héros raise -> 3bet (héros face à un open)
   //   un seul vilain après le héros 3bet  -> vs3bet (héros a ouvert, défense face au 3bet)
+  //   un vilain raise puis un autre call, tous deux avant le héros -> squeeze
   //   autre séquence                      -> non couverte (kind = null)
   // Puis choisit la range du profil courant. Seuls les profils définis pour le spot sont proposés
   // (vs. reg toujours) ; si le profil choisi n'existe pas ici, la range vs. reg est affichée
   // sans changer le choix (il revient dès qu'un spot le définit).
   function currentSpot() {
     const acts = Object.entries(state.villain);
-    let kind = null, villain = null, byProfile = null;
+    let kind = null, villain = null, callerPos = null, byProfile = null;
     if (!acts.length) {
       kind = 'open';
       byProfile = window.RANGES.open[state.hero];
@@ -54,17 +55,26 @@
       kind = 'vs3bet';
       villain = acts[0][0];
       byProfile = (window.RANGES.vs3bet[state.hero] || {})[villain];
+    } else if (acts.length === 2) {
+      const raiser = acts.find(([, a]) => a === 'raise');
+      const caller = acts.find(([, a]) => a === 'call');
+      if (raiser && caller && posIdx(raiser[0]) < posIdx(caller[0]) && posIdx(caller[0]) < posIdx(state.hero)) {
+        kind = 'squeeze';
+        villain = raiser[0];
+        callerPos = caller[0];
+        byProfile = ((window.RANGES.squeeze[state.hero] || {})[villain] || {})[callerPos];
+      }
     }
-    if (!byProfile) return { kind, villain, spot: EMPTY_SPOT, missing: true, profile: 'gto', profiles: ['gto'] };
+    if (!byProfile) return { kind, villain, caller: callerPos, spot: EMPTY_SPOT, missing: true, profile: 'gto', profiles: ['gto'] };
     const profiles = PROFILES.map((p) => p.id).filter((id) => id === 'gto' || byProfile[id]);
     const profile = byProfile[state.profile] ? state.profile : 'gto';
-    return { kind, villain, spot: byProfile[profile] || EMPTY_SPOT, missing: false, profile, profiles };
+    return { kind, villain, caller: callerPos, spot: byProfile[profile] || EMPTY_SPOT, missing: false, profile, profiles };
   }
 
   // Action affichée pour le héros sur la table : [action, montant] ou null.
   function heroAction(cur) {
     if (cur.kind === 'vs3bet') return ['raise', openSize(state.hero)];
-    if (!cur.missing) return [cur.kind === 'open' ? 'raise' : '3bet', cur.spot.size];
+    if (!cur.missing) return [{ open: 'raise', squeeze: 'squeeze' }[cur.kind] || '3bet', cur.spot.size];
     const actedAfter = Object.keys(state.villain).some((p) => posIdx(p) > posIdx(state.hero));
     return actedAfter ? ['raise', openSize(state.hero)] : null;
   }
@@ -311,6 +321,7 @@
     if (cur.kind === 'open') return state.hero + ' — Open';
     if (cur.kind === 'threebet') return state.hero + ' vs ' + cur.villain + ' — 3bet';
     if (cur.kind === 'vs3bet') return state.hero + ' vs ' + cur.villain + ' — Défense vs 3bet';
+    if (cur.kind === 'squeeze') return state.hero + ' vs ' + cur.villain + ' + ' + cur.caller + ' — Squeeze';
     return state.hero + ' — Spot non couvert';
   }
 
@@ -319,12 +330,17 @@
       if (cur.kind === 'open') return "Pas de range d'open depuis la " + state.hero + " : clique sur un siège pour donner l'action d'un vilain.";
       if (cur.kind === 'threebet') return 'Pas de range définie pour ' + state.hero + ' face à un open ' + cur.villain + '.';
       if (cur.kind === 'vs3bet') return 'Pas de range définie pour ' + state.hero + ' face à un 3bet ' + cur.villain + '.';
-      return "Pas de range pour cette séquence : seuls l'open, le 3bet face à un open et la défense face à un 3bet sont couverts.";
+      if (cur.kind === 'squeeze') return 'Pas de range de squeeze pour ' + state.hero + ' face à un open ' + cur.villain + ' et un call ' + cur.caller + '.';
+      return "Pas de range pour cette séquence : seuls l'open, le 3bet face à un open, la défense face à un 3bet et le squeeze sont couverts.";
     }
     if (cur.kind === 'open') return '';
     if (cur.kind === 'vs3bet') {
       return state.hero + ' ouvre à ' + fmt(openSize(state.hero)) + ' BB · ' + cur.villain + ' 3bet à ' +
         fmt(openSize(state.hero) * 3) + ' BB · 4bet à ' + fmt(cur.spot.size) + ' BB';
+    }
+    if (cur.kind === 'squeeze') {
+      return cur.villain + ' ouvre à ' + fmt(openSize(cur.villain)) + ' BB · ' + cur.caller + ' call · squeeze à ' +
+        fmt(cur.spot.size) + ' BB';
     }
     return cur.villain + ' ouvre à ' + fmt(openSize(cur.villain)) + ' BB · 3bet à ' + fmt(cur.spot.size) + ' BB';
   }
@@ -349,7 +365,7 @@
 
     $('#legend').innerHTML = actionOrder().map((a) => {
       const act = window.ACTIONS[a];
-      const label = a === 'raise' || a === '3bet' || a === '4bet' ? act.label + ' ' + fmt(spot.size) : act.label;
+      const label = ['raise', '3bet', '4bet', 'squeeze'].includes(a) ? act.label + ' ' + fmt(spot.size) : act.label;
       return '<li><span class="sw" style="background:' + window.ACTIONS[a].color + '"></span>' +
         '<span class="lbl">' + label + '</span>' +
         '<span class="val">' + fmt((totals[a] / TOTAL_COMBOS) * 100) + ' %</span>' +

@@ -21,6 +21,7 @@ Le spot est déduit des actions des vilains (`currentSpot()` dans `js/app.js`) :
 - aucune action → **open** : `RANGES.open[héros][profil]`
 - un seul vilain avant le héros fait Raise → **3bet** face à un open : `RANGES.threebet[héros][ouvreur][profil]` (actions `'3bet'` et `call`)
 - un seul vilain après le héros fait 3bet → **défense vs 3bet** (le héros a ouvert) : `RANGES.vs3bet[héros][3betteur][profil]` (actions `'4bet'` et `call`)
+- un vilain fait Raise puis un autre Call, tous deux avant le héros → **squeeze** : `RANGES.squeeze[héros][ouvreur][caller][profil]` (actions `squeeze`, `call` et `callwhale` = call si baleine en blindes)
 - toute autre séquence → « spot non couvert » (grille vide)
 
 ## Profil de la table

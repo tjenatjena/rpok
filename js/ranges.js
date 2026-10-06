@@ -25,7 +25,8 @@
  *   open     : RANGES.open[héros][profil]                 (premier à parler)
  *   threebet : RANGES.threebet[héros][ouvreur][profil]    (un vilain a ouvert avant le héros)
  *   vs3bet   : RANGES.vs3bet[héros][3betteur][profil]     (le héros a ouvert, un vilain après lui 3bet)
- * "size" = taille de la relance du héros en BB (open, 3bet ou 4bet).
+ *   squeeze  : RANGES.squeeze[héros][ouvreur][caller][profil] (un vilain ouvre, un autre call, avant le héros)
+ * "size" = taille de la relance du héros en BB (open, 3bet, 4bet ou squeeze).
  * '5bet' (dans threebet) = main 3bet puis 5bet all-in face à un 4bet ; à placer avant '3bet'.
  * Les actions sont appliquées dans l'ordre : une main à "AQs:0.5" en 3bet puis "AQs" en call
  * est 3bet 50 % / call 50 %.
@@ -40,13 +41,27 @@ window.ACTIONS = {
   '3bet': { label: '3bet',  color: '#e3b31b', text: '#1d232b' },
   '5bet': { label: '3bet / 5bet all-in', color: '#d32f2f' },
   '4bet': { label: '4bet',  color: '#e0523f' },
+  squeeze: { label: 'Squeeze', color: '#d93b3b' },
   call:  { label: 'Call',  color: '#3fa96b' },
+  callwhale: { label: 'Call si baleine en blindes', color: '#4f6df5' },
   limp:  { label: 'Limp',  color: '#3fa96b' },
   fold:  { label: 'Fold',  color: '#2f3a48' },
 };
 
 window.MARKS = {
   call4bet: { label: 'Call 4bet', color: '#4f6df5' },
+};
+
+// BTN face à un open LJ et un call (HJ ou CO) : chart « BTN vs Early ».
+const SQUEEZE_BTN_VS_EARLY = {
+  gto: {
+    size: 13,
+    actions: {
+      squeeze:   'QQ+, AKs, AKo, AQo, A5s, A4s, JJ:0.5, AQs:0.5, AJs:0.5, ATs:0.5, KQs:0.5, KJs:0.5, KTs:0.5, QJs:0.5, ' +
+                 'KQo:0.5, 76s:0.5, 65s:0.5',
+      callwhale: 'JJ-66, AQs, AJs, ATs, KQs, KJs, KTs, QJs, QTs, JTs',
+    },
+  },
 };
 
 window.RANGES = {
@@ -935,6 +950,56 @@ window.RANGES = {
           actions: {
             '4bet': 'TT+, AKs, AQs:0.5, AKo, AQo:0.3, A5s, A4s, A3s:0.5, K9s:0.3, 65s:0.3',
             call:   '99-22, AQs-A6s, AQo, AJo, ATo:0.5, KQs-K8s, KQo, KJo:0.5, QJs-Q9s, JTs, J9s, T9s, T8s, 98s, 87s, 76s, 65s, 54s',
+          },
+        },
+      },
+    },
+  },  // Squeeze : un vilain ouvre, un autre call, puis le héros relance.
+  // Seuls les profils définis ici sont proposés dans le menu pour le spot.
+  squeeze: {
+    BTN: {
+      LJ: {
+        HJ: SQUEEZE_BTN_VS_EARLY,
+        CO: SQUEEZE_BTN_VS_EARLY,
+      },
+      HJ: {
+        CO: {
+          gto: {
+            size: 13,
+            actions: {
+              squeeze:   'JJ+, AKs, AQs, A9s, A5s, A4s, K9s, AKo, AQo, KQo, ' +
+                         'AJs:0.5, ATs:0.5, KQs:0.5, KJs:0.5, KTs:0.5, QJs:0.5, AJo:0.5, 76s:0.5, 65s:0.5',
+              callwhale: 'TT-66, AJs, ATs, KQs, KJs, KTs, QJs, QTs, JTs',
+            },
+          },
+        },
+      },
+    },
+    SB: {
+      CO: {
+        BTN: {
+          gto: {
+            size: 15,
+            actions: {
+              squeeze:   '99+, ATs+, A5s, A4s, KTs+, QTs+, JTs, T9s, AQo+, KQo, AJo:0.5',
+              callwhale: 'K8s-K2s, Q8s, J8s, ATo, KTo, QTo, JTo, KJo, QJo',
+            },
+          },
+        },
+      },
+    },
+    BB: {
+      CO: {
+        BTN: {
+          gto: {
+            size: 15,
+            actions: {
+              squeeze:   'TT+, AKs, AQs, KQs, AKo, AQo, ' +
+                         'AJs:0.5, ATs:0.5, A4s:0.5, KJs:0.5, KTs:0.5, QJs:0.5, QTs:0.5, JTs:0.5, T9s:0.5, KQo:0.5, AJo:0.5',
+              call:      '99-22, A9s-A2s, AJs, ATs, K9s, KJs, KTs, Q9s, QJs, QTs, J9s, JTs, T9s, T8s, 98s, 97s, ' +
+                         '87s, 86s, 76s, 75s, 65s, 64s, 54s, 53s, 43s, KQo, AJo',
+              callwhale: 'K8s-K2s, Q8s, J8s, ATo, KTo, QTo, JTo, KJo, QJo',
+            },
           },
         },
       },
