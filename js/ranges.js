@@ -25,6 +25,8 @@
  *   open     : RANGES.open[héros][profil]                 (premier à parler)
  *   threebet : RANGES.threebet[héros][ouvreur][profil]    (un vilain a ouvert avant le héros)
  *   vs3bet   : RANGES.vs3bet[héros][3betteur][profil]     (le héros a ouvert, un vilain après lui 3bet)
+ *   iso      : RANGES.iso[héros][profil]                   (un vilain limp avant le héros ; même range
+ *                                                            quel que soit le limpeur, action 'iso')
  *   squeeze  : RANGES.squeeze[héros][ouvreur][caller][profil] (un vilain ouvre, un autre call, avant le héros)
  * "size" = taille de la relance du héros en BB (open, 3bet, 4bet ou squeeze).
  * '5bet' (dans threebet) = main 3bet puis 5bet all-in face à un 4bet ; à placer avant '3bet'.
@@ -42,6 +44,8 @@ window.ACTIONS = {
   '5bet': { label: '3bet / 5bet all-in', color: '#d32f2f' },
   '4bet': { label: '4bet',  color: '#e0523f' },
   squeeze: { label: 'Squeeze', color: '#d93b3b' },
+  iso:   { label: 'Iso',   color: '#e3b31b', text: '#1d232b' },
+  large: { label: 'Large', color: '#f2d024', text: '#1d232b' },
   call:  { label: 'Call',  color: '#3fa96b' },
   callwhale: { label: 'Call si baleine en blindes', color: '#4f6df5' },
   limp:  { label: 'Limp',  color: '#3fa96b' },
@@ -1001,6 +1005,126 @@ window.RANGES = {
               callwhale: 'K8s-K2s, Q8s, J8s, ATo, KTo, QTo, JTo, KJo, QJo',
             },
           },
+        },
+      },
+    },
+  },
+};
+// Iso sur limp : un seul vilain limp avant le héros. Pour LJ/HJ/CO/BTN/SB en tant que héros, même
+// range quel que soit le limpeur (toujours en position postflop sur lui) : objet partagé ci-dessous,
+// référencé pour chaque position de limpeur possible (voir CLAUDE.md).
+const ISO_HJ = {
+  limp528: {
+    size: 3.5,
+    actions: {
+      iso: '55+, A2s+, K8s+, Q9s+, JTs, ATo+, KTo+, QJo',
+    },
+  },
+  limp050: {
+    size: 3.5,
+    actions: {
+      iso:   '66+, A4s+, K9s+, QTs+, JTs, AJo+, KQo',
+      large: '55, A3s, ATo',
+    },
+  },
+};
+const ISO_CO = {
+  limp528: {
+    size: 3.5,
+    actions: {
+      iso: '55+, A2s+, K8s+, Q9s+, J9s+, T9s, A8o+, KTo+, QTo+',
+    },
+  },
+  limp050: {
+    size: 3.5,
+    actions: {
+      iso:   '66+, A3s+, K9s+, Q9s+, JTs, T9s, ATo+, KJo+',
+      large: '55, A2s, K8s, QJo',
+    },
+  },
+};
+const ISO_BTN = {
+  limp528: {
+    size: 4,
+    actions: {
+      iso: '55+, A2s+, K2s+, Q5s+, J8s+, T8s+, 98s, 87s, 76s, 65s, 54s, A4o+, KTo+, QTo+, JTo',
+    },
+  },
+  limp050: {
+    size: 4,
+    actions: {
+      iso:   '44+, A2s+, K8s+, Q9s+, J9s+, T9s, A8o+, KJo+, QJo',
+      large: 'K7s, KTo, QTo, 98s',
+    },
+  },
+};
+const ISO_SB = {
+  limp528: {
+    size: 5,
+    actions: {
+      iso: '66+, A4s+, K5s+, QTs+, JTs, T9s, ATo+, KJo+',
+    },
+  },
+  limp050: {
+    size: 5,
+    actions: {
+      iso:   '66+, A4s, A5s, A7s+, K9s+, Q9s+, J9s+, T9s, AJo+, KQo',
+      large: '55, A6s, ATo',
+    },
+  },
+};
+// BB face à un limpeur "en position" (LJ/HJ/CO/BTN : ils auront la position postflop sur BB).
+const ISO_BB_VS_IP = {
+  limp528: {
+    size: 5,
+    actions: {
+      iso:   '22+, A7s+, KTs+, QTs+, JTs, T9s, AKo',
+      large: 'A2s-A6s, K9s, Q9s, J9s',
+    },
+  },
+  limp050: {
+    size: 5,
+    actions: {
+      iso:   '88+, A8s+, K9s+, QTs+, JTs, AQo+',
+      large: '77-66, T9s',
+    },
+  },
+};
+
+window.RANGES.iso = {
+  HJ: { LJ: ISO_HJ },
+  CO: { LJ: ISO_CO, HJ: ISO_CO },
+  BTN: { LJ: ISO_BTN, HJ: ISO_BTN, CO: ISO_BTN },
+  SB: { LJ: ISO_SB, HJ: ISO_SB, CO: ISO_SB, BTN: ISO_SB },
+  // BB vs SB (BB aura la position postflop) : range bien plus large, différente par profil de limpeur.
+  BB: {
+    LJ: ISO_BB_VS_IP,
+    HJ: ISO_BB_VS_IP,
+    CO: ISO_BB_VS_IP,
+    BTN: ISO_BB_VS_IP,
+    SB: {
+      limp0100: {
+        size: 7,
+        actions: {
+          iso:   'KK+, AKs, AKo, K7o, K6o, A3o, A2o',
+          large: 'A8s-AQs, K9s+, QQ, Q9s+, AQo, KQo, JJ, J9s+, AJo, TT, T9s, ATo, 99-77',
+        },
+      },
+      limp1660: {
+        size: 7,
+        actions: {
+          iso:   'AA, KK, QQ, JJ, TT, 66, 44, 33, AJs+, QJs, T2s, 93s, 92s, 83s, 82s, 73s, 72s, 65s, 62s, ' +
+                 'ATo+, KTo+, K2o-K5o, QTo+, JTo, J6o, T6o',
+          large: '99-77, 55, 22, A2s-ATs, K6s-KQs, Q7s-QTs, J7s-JTs, T7s-T9s, 97s+, 76s, 54s, ' +
+                 'A7o-A9o, K9o, K6o, Q9o, Q6o',
+        },
+      },
+      limp037: {
+        size: 7,
+        actions: {
+          iso:   '33+, A8s+, KQs, 54s, ATo+, KQo',
+          large: '22, A7s-A2s, K4s-KJs, Q4s-QJs, J5s-JTs, T6s-T9s, 96s-98s, 86s+, 75s+, 65s, ' +
+                 'A5o-A9o, K9o-KJo, Q9o-QJo, J9o+, T9o',
         },
       },
     },

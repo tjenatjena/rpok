@@ -18,12 +18,17 @@
     { id: 'fish', label: 'vs. passif', color: '#ec6fb4' },
     { id: 'nit', label: 'vs. nit', color: '#3d5fd6' },
     { id: 'supernit', label: 'vs. super nit', color: '#2333a3' },
+    { id: 'limp528', label: 'vs. 5-28', color: '#4a9d6e' },
+    { id: 'limp050', label: 'vs. 0-50', color: '#8a6fd6' },
+    { id: 'limp0100', label: 'vs. 0-100', color: '#a0654a' },
+    { id: 'limp1660', label: 'vs. 16-60', color: '#2f9e8f' },
+    { id: 'limp037', label: 'vs. 0-37', color: '#c9972e' },
   ];
   const profileOf = (id) => PROFILES.find((p) => p.id === id);
 
 
   // Actions qu'on peut donner à un vilain en cliquant sur son siège.
-  const VILLAIN_ACTIONS = ['raise', 'call', '3bet'];
+  const VILLAIN_ACTIONS = ['raise', 'call', '3bet', 'limp'];
   const EMPTY_SPOT = { size: 0, actions: {} };
 
   // villain : { position: 'raise' | 'call' | '3bet' } pour les vilains dont on a donné l'action.
@@ -36,6 +41,7 @@
   //   aucune action                       -> open
   //   un seul vilain avant le héros raise -> 3bet (héros face à un open)
   //   un seul vilain après le héros 3bet  -> vs3bet (héros a ouvert, défense face au 3bet)
+  //   un seul vilain avant le héros limp  -> iso (range par position du limpeur, voir RANGES.iso)
   //   un vilain raise puis un autre call, tous deux avant le héros -> squeeze
   //   autre séquence                      -> non couverte (kind = null)
   // Puis choisit la range du profil courant. Seuls les profils définis pour le spot sont proposés
@@ -55,6 +61,10 @@
       kind = 'vs3bet';
       villain = acts[0][0];
       byProfile = (window.RANGES.vs3bet[state.hero] || {})[villain];
+    } else if (acts.length === 1 && acts[0][1] === 'limp' && posIdx(acts[0][0]) < posIdx(state.hero)) {
+      kind = 'iso';
+      villain = acts[0][0];
+      byProfile = (window.RANGES.iso[state.hero] || {})[villain];
     } else if (acts.length === 2) {
       const raiser = acts.find(([, a]) => a === 'raise');
       const caller = acts.find(([, a]) => a === 'call');
@@ -66,15 +76,17 @@
       }
     }
     if (!byProfile) return { kind, villain, caller: callerPos, spot: EMPTY_SPOT, missing: true, profile: 'gto', profiles: ['gto'] };
-    const profiles = PROFILES.map((p) => p.id).filter((id) => id === 'gto' || byProfile[id]);
-    const profile = byProfile[state.profile] ? state.profile : 'gto';
+    // 'gto' n'apparaît que s'il est défini pour ce spot (ex. pas de vs. reg sur l'iso sur limp) ;
+    // le profil choisi revient sur gto s'il est défini, sinon sur le premier profil disponible.
+    const profiles = PROFILES.map((p) => p.id).filter((id) => byProfile[id]);
+    const profile = byProfile[state.profile] ? state.profile : (byProfile.gto ? 'gto' : profiles[0]);
     return { kind, villain, caller: callerPos, spot: byProfile[profile] || EMPTY_SPOT, missing: false, profile, profiles };
   }
 
   // Action affichée pour le héros sur la table : [action, montant] ou null.
   function heroAction(cur) {
     if (cur.kind === 'vs3bet') return ['raise', openSize(state.hero)];
-    if (!cur.missing) return [{ open: 'raise', squeeze: 'squeeze' }[cur.kind] || '3bet', cur.spot.size];
+    if (!cur.missing) return [{ open: 'raise', squeeze: 'squeeze', iso: 'iso' }[cur.kind] || '3bet', cur.spot.size];
     const actedAfter = Object.keys(state.villain).some((p) => posIdx(p) > posIdx(state.hero));
     return actedAfter ? ['raise', openSize(state.hero)] : null;
   }
@@ -208,7 +220,7 @@
         if (heroAct) [act, amt] = heroAct;
       } else if (state.villain[pos]) {
         act = state.villain[pos];
-        amt = act === 'call' ? level : level <= 1 ? openSize(pos) : level * 3;
+        amt = act === 'call' ? level : act === 'limp' ? 1 : level <= 1 ? openSize(pos) : level * 3;
       }
       if (act) level = Math.max(level, amt);
       const folded = !act && i < heroIdx;
@@ -232,7 +244,7 @@
         tag.textContent = 'Fold';
         tag.classList.add('show', 'fold');
       } else if (act) {
-        tag.textContent = window.ACTIONS[act].label + (act === 'call' ? '' : ' ' + fmt(amt));
+        tag.textContent = window.ACTIONS[act].label + (act === 'call' || act === 'limp' ? '' : ' ' + fmt(amt));
         tag.style.background = window.ACTIONS[act].color;
         tag.style.color = window.ACTIONS[act].text || '';
         tag.classList.add('show');
@@ -321,6 +333,7 @@
     if (cur.kind === 'open') return state.hero + ' — Open';
     if (cur.kind === 'threebet') return state.hero + ' vs ' + cur.villain + ' — 3bet';
     if (cur.kind === 'vs3bet') return state.hero + ' vs ' + cur.villain + ' — Défense vs 3bet';
+    if (cur.kind === 'iso') return state.hero + ' vs ' + cur.villain + ' — Iso sur limp';
     if (cur.kind === 'squeeze') return state.hero + ' vs ' + cur.villain + ' + ' + cur.caller + ' — Squeeze';
     return state.hero + ' — Spot non couvert';
   }
@@ -330,14 +343,16 @@
       if (cur.kind === 'open') return "Pas de range d'open depuis la " + state.hero + " : clique sur un siège pour donner l'action d'un vilain.";
       if (cur.kind === 'threebet') return 'Pas de range définie pour ' + state.hero + ' face à un open ' + cur.villain + '.';
       if (cur.kind === 'vs3bet') return 'Pas de range définie pour ' + state.hero + ' face à un 3bet ' + cur.villain + '.';
+      if (cur.kind === 'iso') return "Pas de range d'iso définie pour " + state.hero + ' face à un limp ' + cur.villain + '.';
       if (cur.kind === 'squeeze') return 'Pas de range de squeeze pour ' + state.hero + ' face à un open ' + cur.villain + ' et un call ' + cur.caller + '.';
-      return "Pas de range pour cette séquence : seuls l'open, le 3bet face à un open, la défense face à un 3bet et le squeeze sont couverts.";
+      return "Pas de range pour cette séquence : seuls l'open, le 3bet face à un open, la défense face à un 3bet, l'iso sur limp et le squeeze sont couverts.";
     }
     if (cur.kind === 'open') return '';
     if (cur.kind === 'vs3bet') {
       return state.hero + ' ouvre à ' + fmt(openSize(state.hero)) + ' BB · ' + cur.villain + ' 3bet à ' +
         fmt(openSize(state.hero) * 3) + ' BB · 4bet à ' + fmt(cur.spot.size) + ' BB';
     }
+    if (cur.kind === 'iso') return cur.villain + ' limp · iso à ' + fmt(cur.spot.size) + ' BB';
     if (cur.kind === 'squeeze') {
       return cur.villain + ' ouvre à ' + fmt(openSize(cur.villain)) + ' BB · ' + cur.caller + ' call · squeeze à ' +
         fmt(cur.spot.size) + ' BB';
@@ -365,7 +380,7 @@
 
     $('#legend').innerHTML = actionOrder().map((a) => {
       const act = window.ACTIONS[a];
-      const label = ['raise', '3bet', '4bet', 'squeeze'].includes(a) ? act.label + ' ' + fmt(spot.size) : act.label;
+      const label = ['raise', '3bet', '4bet', 'squeeze', 'iso'].includes(a) ? act.label + ' ' + fmt(spot.size) : act.label;
       return '<li><span class="sw" style="background:' + window.ACTIONS[a].color + '"></span>' +
         '<span class="lbl">' + label + '</span>' +
         '<span class="val">' + fmt((totals[a] / TOTAL_COMBOS) * 100) + ' %</span>' +
