@@ -11,7 +11,9 @@
 </head>
 <body>
   <main>
-    <nav id="positions" class="positions" aria-label="Position"></nav>
+    <nav id="positions" class="positions" aria-label="Position">
+      <button id="drill-toggle" class="drill-toggle" type="button">Drill</button>
+    </nav>
 
     <section class="table-wrap">
       <div id="table" class="table">
@@ -33,16 +35,24 @@
         <h2 id="spot-title"></h2>
         <p id="spot-sub" class="muted"></p>
         <p id="parse-errors" class="parse-errors" hidden></p>
-
-        <div class="stats">
-          <div><span class="muted">Mains jouées</span><strong id="stat-pct"></strong></div>
-          <div><span class="muted">Combos / 1326</span><strong id="stat-combos"></strong></div>
-        </div>
+        <div id="sizing-note" class="sizing-note" hidden></div>
 
         <ul id="legend" class="legend"></ul>
 
         <div id="hover" class="hover"></div>
 
+        <div id="drill-panel" class="drill-panel" hidden>
+          <div class="drill-cards">
+            <div id="drill-card-1" class="drill-card"></div>
+            <div id="drill-card-2" class="drill-card"></div>
+          </div>
+          <div id="drill-feedback" class="drill-feedback"></div>
+          <div class="drill-actions">
+            <button id="drill-fold" class="drill-btn fold" type="button">FOLD</button>
+            <button id="drill-raise" class="drill-btn raise" type="button">RAISE</button>
+          </div>
+          <div id="drill-score" class="drill-score"></div>
+        </div>
       </aside>
     </section>
   </main>

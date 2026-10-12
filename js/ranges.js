@@ -72,7 +72,7 @@ window.RANGES = {
   open: {
     LJ: {
       gto: {
-        size: 3,
+        size: 2,
         actions: {
           raise: '77+, ' +
                  'A2s+, K8s+, QTs+, JTs, ' +
@@ -80,7 +80,7 @@ window.RANGES = {
         },
       },
       fish: {
-        size: 3,
+        size: 2,
         actions: {
           raise: '55+, ' +
                  'A2s+, K6s+, Q9s+, JTs, ' +
@@ -88,7 +88,7 @@ window.RANGES = {
         },
       },
       nit: {
-        size: 3,
+        size: 2,
         actions: {
           raise: '44+, ' +
                  'A2s+, K5s+, Q9s+, JTs, T9s, 98s, 87s, 76s, 65s,' +
@@ -96,7 +96,7 @@ window.RANGES = {
         },
       },
       aggro: {
-        size: 3,
+        size: 2,
         actions: {
           raise: '88+, ' +
                  'A3s+, KTs+, QTs+, JTs, ' +
@@ -106,7 +106,7 @@ window.RANGES = {
     },
     HJ: {
       gto: {
-        size: 3,
+        size: 2,
         actions: {
           raise: '66+, ' +
                  'A2s+, K4s+, Q9s+, J9s+, T9s, ' +
@@ -114,7 +114,7 @@ window.RANGES = {
         },
       },
       fish: {
-        size: 3,
+        size: 2,
         actions: {
           raise: '44+, ' +
                  'A2s+, K4s+, Q9s+, J9s+, T9s, 98s, 87s, 76s, 65s, ' +
@@ -122,7 +122,7 @@ window.RANGES = {
         },
       },
       nit: {
-        size: 3,
+        size: 2,
         actions: {
           raise: '33+, ' +
                  'A2s+, K3s+, Q8s+, J9s+, T9s, 98s, 87s, 76s, 65s, 54s, ' +
@@ -130,7 +130,7 @@ window.RANGES = {
         },
       },
       aggro: {
-        size: 3,
+        size: 2,
         actions: {
           raise: '77+, ' +
                  'A2s+, KTs+, QTs+, JTs+, ' +
@@ -140,7 +140,7 @@ window.RANGES = {
     },
     CO: {
       gto: {
-        size: 3,
+        size: 2.3,
         actions: {
           raise: '55+, ' +
                  'A2s+, K3s+, Q8s+, J8s+, T8s+, 98s,' +
@@ -148,7 +148,7 @@ window.RANGES = {
         },
       },
       fish: {
-        size: 3,
+        size: 2.3,
         actions: {
           raise: '22+, ' +
                  'A2s+, K2s+, Q8s+, J8s+, T8s+, 98s, 87s, 76s, 65s, 54s,' +
@@ -156,7 +156,7 @@ window.RANGES = {
         },
       },
       nit: {
-        size: 3,
+        size: 2.3,
         actions: {
           raise: '22+, ' +
                  'A2s+, K2s+, Q6s+, J7s+, T7s+, 97s+, 87s, 76s, 65s, 54s, ' +
@@ -164,7 +164,7 @@ window.RANGES = {
         },
       },
       aggro: {
-        size: 3,
+        size: 2.3,
         actions: {
           raise: '66+, ' +
                  'A2s+, KTs+, QTs+, JTs+, ' +
@@ -174,7 +174,7 @@ window.RANGES = {
     },
     BTN: {
       gto: {
-        size: 3,
+        size: 2.5,
         actions: {
           raise: '22+, ' +
                  'A2s+, K2s+, Q2s+, J5s+, T6s+, 96s+, 86s+, 75s+, 65s, 54s,' +
@@ -182,7 +182,7 @@ window.RANGES = {
         },
       },
       fish: {
-        size: 3,
+        size: 2.5,
         actions: {
           raise: '22+, ' +
                  'A2s+, K2s+, Q2s+, J2s+, T3s+, 95s+, 85s+, 74s+, 64s+, 53s+, 43s, ' +
@@ -190,7 +190,7 @@ window.RANGES = {
         },
       },
       nit: {
-        size: 3,
+        size: 2.5,
         actions: {
           raise: '22+, ' +
                  'A2s+, K2s+, Q2s+, J2s+, T3s+, 95s+, 85s+, 74s+, 64s+, 53s+, 43s, ' +
@@ -198,7 +198,7 @@ window.RANGES = {
         },
       },
       supernit: {
-        size: 3,
+        size: 2.5,
         actions: {
           raise: '22+, ' +
                  'A2s+, K2s+, Q2s+, J2s+, T2s+, 92s+, 82s+, 72s+, 62s+, 52s+, 42s+, 32s, ' +
@@ -206,7 +206,7 @@ window.RANGES = {
         },
       },
       aggro: {
-        size: 3,
+        size: 2.5,
         actions: {
           raise: '22+, ' +
                  'A2s+, K8s+, Q9s+, J9s+, T9s, 98s, 87s, 76s, 65s, ' +

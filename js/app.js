@@ -32,7 +32,7 @@
   const EMPTY_SPOT = { size: 0, actions: {} };
 
   // villain : { position: 'raise' | 'call' | '3bet' } pour les vilains dont on a donné l'action.
-  const state = { hero: 'LJ', profile: 'gto', hovered: null, villain: {} };
+  const state = { hero: 'LJ', profile: 'gto', hovered: null, villain: {}, drill: false };
 
   const posIdx = (pos) => POSITIONS.indexOf(pos);
   const openSize = (pos) => (window.RANGES.open[pos] ? window.RANGES.open[pos].gto.size : 3);
@@ -81,6 +81,39 @@
     const profiles = PROFILES.map((p) => p.id).filter((id) => byProfile[id]);
     const profile = byProfile[state.profile] ? state.profile : (byProfile.gto ? 'gto' : profiles[0]);
     return { kind, villain, caller: callerPos, spot: byProfile[profile] || EMPTY_SPOT, missing: false, profile, profiles };
+  }
+
+  // Notes de sizing (voir chart perso), affichées dans le panneau selon le spot courant.
+  const SIZING_NOTES = {
+    threebet: {
+      title: 'Sizing 3bet',
+      table: {
+        head: ['', '2x', '2,5x', '3x'],
+        rows: [
+          ['IP (×3,3)', '7 bb', '8,5 bb', '10 bb'],
+          ['SB (×4,3)', '9 bb', '11 bb', '13 bb'],
+          ['BB (×4,7)', '9,5 bb', '12 bb', '14 bb'],
+        ],
+      },
+    },
+    vs3bet: { title: 'Sizing 4bet', pair: ['IP (×2,2)', 'OOP (×2,7)'] },
+    squeeze: { title: 'Sizing squeeze', pair: ['IP (×4,5)', 'OOP (×5)'] },
+  };
+
+  function renderSizingNote(cur) {
+    const el = $('#sizing-note');
+    const note = SIZING_NOTES[cur.kind];
+    if (!note) { el.hidden = true; el.innerHTML = ''; return; }
+    let html = '<h3>' + note.title + '</h3>';
+    if (note.table) {
+      html += '<table><thead><tr>' + note.table.head.map((h) => '<th>' + h + '</th>').join('') + '</tr></thead><tbody>' +
+        note.table.rows.map((r) => '<tr>' + r.map((c) => '<td>' + c + '</td>').join('') + '</tr>').join('') +
+        '</tbody></table>';
+    } else if (note.pair) {
+      html += '<div class="sizing-pair">' + note.pair.map((c) => '<span>' + c + '</span>').join('') + '</div>';
+    }
+    el.innerHTML = html;
+    el.hidden = false;
   }
 
   // Action affichée pour le héros sur la table : [action, montant] ou null.
@@ -203,7 +236,22 @@
   const fmt = (n) => (Math.round(n * 10) / 10).toString().replace('.', ',');
   const seatXY = (pos) => SLOTS[(posIdx(pos) - posIdx(state.hero) + 6) % 6];
 
+  // Assombrit une couleur hex (pct de 0 à 1) pour le dégradé du tapis.
+  const shade = (hex, pct) => {
+    const n = parseInt(hex.slice(1), 16);
+    const c = [(n >> 16) & 255, (n >> 8) & 255, n & 255].map((v) => Math.round(v * pct));
+    return '#' + c.map((v) => v.toString(16).padStart(2, '0')).join('');
+  };
+
+  // Couleur du tapis = couleur du profil de vilain courant (voir PROFILES).
+  function renderFelt() {
+    const color = profileOf(currentSpot().profile).color;
+    tableEl.style.setProperty('--felt', color);
+    tableEl.style.setProperty('--felt-dark', shade(color, 0.55));
+  }
+
   function renderTable() {
+    renderFelt();
     const heroIdx = posIdx(state.hero);
     const heroAct = heroAction(currentSpot());
     let pot = 0;
@@ -320,11 +368,25 @@
     const { spot } = currentSpot();
     strategy = buildStrategy(spot);
     marks = buildMarks(spot);
+    // Main interrogée dans le drill : entourée une fois la range révélée, pour la repérer.
+    const highlight = (state.drill && drillAnswered && drillQuestion) ? drillQuestion.hand : null;
     Object.entries(cellEls).forEach(([h, cell]) => {
+      cell.classList.toggle('drill-hit', h === highlight);
+      if (state.drill && !drillAnswered) {
+        cell.style.background = 'var(--surface-2)';
+        cell.style.boxShadow = '';
+        cell.classList.remove('out');
+        return;
+      }
       const s = strategy[h];
       const m = markOf(h);
       cell.style.background = background(s);
-      cell.style.boxShadow = m ? 'inset 0 0 0 3px ' + window.MARKS[m].color : '';
+      let shadow = m ? 'inset 0 0 0 3px ' + window.MARKS[m].color : '';
+      if (h === highlight) {
+        const ring = '0 0 0 2px rgba(0,0,0,.65), 0 0 0 4px #ff2d2d';
+        shadow = shadow ? shadow + ', ' + ring : ring;
+      }
+      cell.style.boxShadow = shadow;
       cell.classList.toggle('out', s.fold >= 0.999);
     });
   }
@@ -363,20 +425,33 @@
   function renderPanel() {
     const cur = currentSpot();
     const { spot } = cur;
+    $('#spot-title').innerHTML = spotTitle(cur) + ' <span class="profile-badge" style="--pc:' + profileOf(cur.profile).color + '">' + profileOf(cur.profile).label + '</span>';
+
+    if (state.drill) {
+      $('#spot-sub').hidden = true;
+      $('#sizing-note').hidden = true;
+      $('#parse-errors').hidden = true;
+      $('#legend').hidden = true;
+      $('#hover').hidden = true;
+      $('#drill-panel').hidden = false;
+      renderDrillCards();
+      renderDrillScore();
+      return;
+    }
+    $('#drill-panel').hidden = true;
+    $('#legend').hidden = false;
+    $('#hover').hidden = false;
+
     const totals = {};
     actionOrder().forEach((a) => { totals[a] = 0; });
     Object.entries(strategy).forEach(([h, s]) => {
       actionOrder().forEach((a) => { totals[a] += (s[a] || 0) * combos(h); });
     });
-    const played = TOTAL_COMBOS - totals.fold;
-
-    $('#spot-title').innerHTML = spotTitle(cur) + ' <span class="profile-badge" style="--pc:' + profileOf(cur.profile).color + '">' + profileOf(cur.profile).label + '</span>';
     const sub = $('#spot-sub');
     sub.classList.toggle('warn', cur.missing);
     sub.textContent = spotSub(cur);
     sub.hidden = !sub.textContent;
-    $('#stat-pct').textContent = fmt((played / TOTAL_COMBOS) * 100) + ' %';
-    $('#stat-combos').textContent = fmt(played);
+    renderSizingNote(cur);
 
     $('#legend').innerHTML = actionOrder().map((a) => {
       const act = window.ACTIONS[a];
@@ -418,6 +493,125 @@
     el.innerHTML = '<div class="hhand">' + h + ' <span class="muted">· ' + combos(h) + ' combos</span></div>' + rows + markRow;
   }
 
+  /* ---------- Drill (entraînement à l'open) ---------- */
+
+  // Positions qui ont une range d'open (BB ne peut pas ouvrir).
+  const openPositions = () => POSITIONS.filter((p) => window.RANGES.open[p]);
+
+  let drillStats = { correct: 0, total: 0 };
+  let drillQuestion = null;
+  // true une fois la question courante répondue : affiche alors toute la range de l'exercice.
+  let drillAnswered = false;
+
+  // Tire une main au hasard pondérée par son nombre de combos (une main offsuit sort plus
+  // souvent qu'une paire, comme à la table).
+  function pickWeightedHand() {
+    const hands = allHands();
+    const weights = hands.map(combos);
+    const total = weights.reduce((a, b) => a + b, 0);
+    let r = Math.random() * total;
+    for (let i = 0; i < hands.length; i++) {
+      r -= weights[i];
+      if (r <= 0) return hands[i];
+    }
+    return hands[hands.length - 1];
+  }
+
+  function newDrillQuestion() {
+    const positions = openPositions();
+    const hero = positions[Math.floor(Math.random() * positions.length)];
+    const byProfile = window.RANGES.open[hero];
+    const profiles = PROFILES.map((p) => p.id).filter((id) => byProfile[id]);
+    const profile = profiles[Math.floor(Math.random() * profiles.length)];
+    const strat = buildStrategy(byProfile[profile]);
+    const hand = pickWeightedHand();
+    // Fréquence mixte : on tire la bonne réponse au prorata de la stratégie (ex. une main
+    // ouverte à 50 % sera "raise" une fois sur deux).
+    const correct = Math.random() < (strat[hand].raise || 0) ? 'raise' : 'fold';
+    state.hero = hero;
+    state.profile = profile;
+    state.villain = {};
+    drillQuestion = { hero, profile, hand, correct };
+    drillAnswered = false;
+  }
+
+  const SUITS = [{ s: '♠', color: 'black' }, { s: '♥', color: 'red' }, { s: '♦', color: 'red' }, { s: '♣', color: 'black' }];
+
+  function randomSuits(n) {
+    const idx = [0, 1, 2, 3];
+    for (let i = idx.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [idx[i], idx[j]] = [idx[j], idx[i]];
+    }
+    return idx.slice(0, n).map((i) => SUITS[i]);
+  }
+
+  // Cartes à afficher pour une main donnée (couleurs tirées au hasard à chaque question).
+  function drillCards(hand) {
+    const r1 = hand[0], r2 = hand[1];
+    if (r1 === r2) {
+      const [a, b] = randomSuits(2);
+      return [{ r: r1, suit: a }, { r: r2, suit: b }];
+    }
+    if (hand[2] === 's') {
+      const [a] = randomSuits(1);
+      return [{ r: r1, suit: a }, { r: r2, suit: a }];
+    }
+    const [a, b] = randomSuits(2);
+    return [{ r: r1, suit: a }, { r: r2, suit: b }];
+  }
+
+  function renderDrillCards() {
+    if (!drillQuestion) return;
+    drillCards(drillQuestion.hand).forEach((c, i) => {
+      const el = $('#drill-card-' + (i + 1));
+      el.textContent = c.r + c.suit.s;
+      el.classList.toggle('red', c.suit.color === 'red');
+    });
+  }
+
+  function renderDrillScore() {
+    $('#drill-score').textContent = drillStats.correct + ' / ' + drillStats.total + ' bonnes réponses';
+  }
+
+  function answerDrill(action) {
+    if (!drillQuestion) return;
+    const ok = action === drillQuestion.correct;
+    drillStats.total++;
+    if (ok) drillStats.correct++;
+    drillAnswered = true;
+
+    const feedback = $('#drill-feedback');
+    feedback.textContent = ok ? 'Correct !' : 'Perdu — la bonne réponse était ' + window.ACTIONS[drillQuestion.correct].label.toLowerCase() + '.';
+    feedback.className = 'drill-feedback ' + (ok ? 'correct' : 'wrong');
+    $('#drill-fold').disabled = true;
+    $('#drill-raise').disabled = true;
+    renderGrid();
+    renderDrillScore();
+
+    setTimeout(() => {
+      newDrillQuestion();
+      render();
+      feedback.textContent = '';
+      feedback.className = 'drill-feedback';
+      $('#drill-fold').disabled = false;
+      $('#drill-raise').disabled = false;
+    }, 1800);
+  }
+
+  function toggleDrill() {
+    state.drill = !state.drill;
+    $('#drill-toggle').classList.toggle('active', state.drill);
+    hideMenu();
+    if (state.drill) {
+      drillStats = { correct: 0, total: 0 };
+      newDrillQuestion();
+    } else {
+      drillQuestion = null;
+    }
+    render();
+  }
+
   /* ---------- Interactions ---------- */
 
   function hover(h) {
@@ -429,9 +623,6 @@
     state.hero = pos;
     state.villain = {};
     hideMenu();
-    document.querySelectorAll('.positions button').forEach((b) => {
-      b.classList.toggle('active', b.dataset.pos === pos);
-    });
     render();
   }
 
@@ -440,11 +631,30 @@
     render();
   }
 
+  function renderPositionsNav() {
+    document.querySelectorAll('.positions button').forEach((b) => {
+      b.classList.toggle('active', b.dataset.pos === state.hero);
+      b.disabled = state.drill;
+    });
+  }
+
+  // Décale le bouton Drill (reste dans le nav des positions, jamais déplacé) pour que son bord
+  // gauche coïncide avec celui de la grille de range, quelle que soit sa largeur réelle.
+  function positionDrillToggle() {
+    const btn = $('#drill-toggle');
+    if (getComputedStyle(btn).position !== 'absolute') return;
+    const navRect = $('#positions').getBoundingClientRect();
+    const gridRect = gridEl.getBoundingClientRect();
+    btn.style.left = (gridRect.left - navRect.left) + 'px';
+  }
+
   function render() {
+    renderPositionsNav();
     renderTable();
     renderProfiles();
     renderGrid();
     renderPanel();
+    positionDrillToggle();
   }
 
   function buildPositions(nav) {
@@ -472,11 +682,19 @@
   }
 
   function toggleMenu(pos) {
+    if (state.drill) return;
     if (pos === state.hero || pos === menuPos) { hideMenu(); return; }
     menuPos = pos;
     const current = state.villain[pos] || null;
+    // 'raise' = ce vilain open : impossible si le héros a déjà parlé avant lui (héros = ouvreur
+    // implicite) ou si un autre vilain avant lui a déjà raise (déjà un ouvreur).
+    const alreadyOpened = posIdx(pos) > posIdx(state.hero) ||
+      Object.entries(state.villain).some(([p, a]) => a === 'raise' && posIdx(p) < posIdx(pos));
+    // '3bet' = le vilain 3bet l'open du héros : n'a de sens que si ce vilain parle après le héros.
+    const actions = VILLAIN_ACTIONS.filter((a) =>
+      (a !== '3bet' || posIdx(pos) > posIdx(state.hero)) && (a !== 'raise' || !alreadyOpened));
     menuEl.innerHTML = '';
-    [null].concat(VILLAIN_ACTIONS).forEach((a) => {
+    [null].concat(actions).forEach((a) => {
       const b = document.createElement('button');
       b.type = 'button';
       b.textContent = a ? window.ACTIONS[a].label : 'Aucune';
@@ -535,11 +753,13 @@
     PROFILES.forEach(({ id }) => {
       profileEls[id].classList.toggle('active', id === profile);
       profileEls[id].parentElement.hidden = !profiles.includes(id);
+      profileEls[id].disabled = state.drill;
     });
   }
 
   function bindKeys() {
     document.addEventListener('keydown', (e) => {
+      if (state.drill) { if (e.key === 'Escape') hideMenu(); return; }
       if (e.key === 'Escape') {
         hideMenu();
       } else if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') {
@@ -553,6 +773,11 @@
       }
     });
   }
+
+  $('#drill-toggle').addEventListener('click', toggleDrill);
+  $('#drill-fold').addEventListener('click', () => answerDrill('fold'));
+  $('#drill-raise').addEventListener('click', () => answerDrill('raise'));
+  window.addEventListener('resize', positionDrillToggle);
 
   buildPositions($('#positions'));
   buildTable();
