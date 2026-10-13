@@ -688,11 +688,16 @@
     const current = state.villain[pos] || null;
     // 'raise' = ce vilain open : impossible si le héros a déjà parlé avant lui (héros = ouvreur
     // implicite) ou si un autre vilain avant lui a déjà raise (déjà un ouvreur).
-    const alreadyOpened = posIdx(pos) > posIdx(state.hero) ||
-      Object.entries(state.villain).some(([p, a]) => a === 'raise' && posIdx(p) < posIdx(pos));
+    const raiseBefore = Object.entries(state.villain).some(([p, a]) => a === 'raise' && posIdx(p) < posIdx(pos));
+    const alreadyOpened = posIdx(pos) > posIdx(state.hero) || raiseBefore;
     // '3bet' = le vilain 3bet l'open du héros : n'a de sens que si ce vilain parle après le héros.
+    // 'limp' = personne n'a encore ouvert avant ce vilain (sinon il callerait/relancerait, pas limp).
+    // 'call' = il y a déjà un open avant ce vilain (sinon rien à caller : limp est la bonne action).
     const actions = VILLAIN_ACTIONS.filter((a) =>
-      (a !== '3bet' || posIdx(pos) > posIdx(state.hero)) && (a !== 'raise' || !alreadyOpened));
+      (a !== '3bet' || posIdx(pos) > posIdx(state.hero)) &&
+      (a !== 'raise' || !alreadyOpened) &&
+      (a !== 'limp' || !alreadyOpened) &&
+      (a !== 'call' || raiseBefore));
     menuEl.innerHTML = '';
     [null].concat(actions).forEach((a) => {
       const b = document.createElement('button');
