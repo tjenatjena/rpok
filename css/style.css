@@ -61,9 +61,12 @@ main {
 
 .profiles {
   flex: none;
+  width: 150px;
   background: var(--surface); border: 1px solid var(--border); border-radius: 12px;
   padding: 10px 12px;
 }
+/* Clone invisible de .profiles côté gauche pour que .table reste centré malgré le panneau de droite. */
+.profiles-ghost { visibility: hidden; pointer-events: none; }
 .profiles h3 {
   margin: 0 0 6px; font-size: 11px; font-weight: 600; text-align: center;
   text-transform: uppercase; letter-spacing: .8px; color: var(--muted);
@@ -275,7 +278,10 @@ main {
   padding: 16px;
   width: 280px; flex: none;
   max-height: 100%; overflow: auto;
+  scrollbar-width: none; /* Firefox */
+  -ms-overflow-style: none; /* Edge legacy */
 }
+.panel::-webkit-scrollbar { display: none; /* Chrome, Edge, Safari */ }
 .panel h2 { margin: 0 0 4px; font-size: 20px; }
 .panel p { margin: 0 0 16px; font-size: 13px; }
 
@@ -344,6 +350,8 @@ main {
   .cell { aspect-ratio: 1; font-size: clamp(7px, 2.6vw, 13px); }
   .panel { width: auto; max-height: none; }
   .table-wrap { flex-direction: column; }
+  .profiles-ghost { display: none; }
+  .profiles { width: auto; }
   .profile-list { flex-direction: row; flex-wrap: wrap; }
   .profile-list button { width: auto; }
 }
