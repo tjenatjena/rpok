@@ -13,6 +13,14 @@ S'ouvre directement via `index.html`. Les ranges sont en lecture seule dans l'in
 2. Table 6-max (héros toujours en bas) avec, à côté, le menu du profil de joueurs à la table.
    Cliquer sur le siège d'un vilain ouvre un menu pour donner son action (Aucune / Raise / Call / 3bet / Limp). Le siège du héros n'est pas cliquable.
 3. Grille de range en dessous (façon Suited / GTO Wizard) avec fréquences mixtes.
+4. Panneau à droite de la grille : titre du spot, encart de notes (sizings ; sur le 3bet, notes de stratégie par position du héros + notes générales + note du profil : vs. reg affiche vs. aggro, vs. fish, vs. nit dans cet ordre), légende et détail de la main survolée. Pas de sous-titre ni de sizing dans la légende pour le 3bet.
+
+## Drill
+
+Le bouton Drill ouvre un menu de modes : **ALL** (questions open et 3b mélangées au hasard), **Open**, **3b** ; un nouveau clic arrête le drill.
+Chaque question tire au hasard une situation (open : héros ; 3b : héros + ouvreur), un profil défini pour ce spot et une main ; réponses Fold/Raise (open) ou Fold/Call/3bet (3b, le 3bet/5bet all-in compte comme 3bet). La bonne réponse est tirée au prorata des fréquences de la range.
+Le tirage vise les mains « border » (`DRILL_BORDER_SHARE` = 85 % des questions) : fréquence mixte, ou une des 8 cases voisines de la grille (diagonales comprises) a une autre action majoritaire ; le reste est tiré parmi toutes les mains, toujours pondéré par les combos.
+Pendant le drill, le siège du héros n'a ni jetons ni montant, juste un « ? » dans l'encadré jaune ; la grille est révélée après la réponse.
 
 ## Spots
 

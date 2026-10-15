@@ -32,7 +32,8 @@
   const EMPTY_SPOT = { size: 0, actions: {} };
 
   // villain : { position: 'raise' | 'call' | '3bet' } pour les vilains dont on a donné l'action.
-  const state = { hero: 'LJ', profile: 'gto', hovered: null, villain: {}, drill: false };
+  // drill : null (mode normal) ou mode choisi dans le menu Drill ('all' | 'open' | 'threebet').
+  const state = { hero: 'LJ', profile: 'gto', hovered: null, villain: {}, drill: null };
 
   const posIdx = (pos) => POSITIONS.indexOf(pos);
   const openSize = (pos) => (window.RANGES.open[pos] ? window.RANGES.open[pos].gto.size : 3);
@@ -100,6 +101,45 @@
     squeeze: { title: 'Sizing squeeze', pair: ['IP (×4,5)', 'OOP (×5)'] },
   };
 
+  // Notes de stratégie 3bet (voir notes perso) : ligne de la position du héros, notes générales,
+  // puis note du profil choisi (vs. reg : les trois notes de profil).
+  const THREEBET_POS_NOTES = {
+    LJ: ['Early : 3b linéaire'],
+    HJ: ['Early : 3b linéaire'],
+    CO: ['Early : 3b linéaire'],
+    BTN: ['BU : 3b polarisé et call la mid range'],
+    SB: ['SB : 3b polarisé', 'Range de call en SB et BB : il faut que l\'OR…'],
+    BB: ['Range de call en SB et BB : il faut que l\'OR…'],
+  };
+  const THREEBET_GENERAL_NOTES = [
+    '+ vilain call, plus on 3b mergé',
+    '+ vilain fold, plus on 3b polarisé',
+    'Grossir le sizing en fonction de la profondeur',
+  ];
+  const THREEBET_PROFILE_NOTES = {
+    nit: { title: 'vs. nit', lines: ['3b polarisé car %f élevé et 4b domine notre range mergée', 'Obtenir des fold', 'Utiliser une range polarisée (SC) vs. une range serrée'] },
+    aggro: { title: 'vs. aggro', lines: ['3b mergé vs. low 4betteur', 'Développer une range de call vs. high 4betteur', 'Mauvaise réalisation d\'équité (privilégier la position)'] },
+    fish: { title: 'vs. fish', lines: ['Beaucoup 3b mergé pour isoler avec une range dominante', 'Excellente réalisation d\'équité', 'Grossir les sizings'] },
+  };
+  const THREEBET_NOTES_BY_PROFILE = {
+    gto: ['aggro', 'fish', 'nit'],
+    lin: ['aggro', 'fish', 'nit'],
+    nit: ['nit'],
+    supernit: ['nit'],
+    aggro: ['aggro'],
+    fish: ['fish'],
+  };
+
+  function threebetNotesHtml(cur) {
+    const list = (lines) => '<ul class="note-lines">' + lines.map((l) => '<li>' + l + '</li>').join('') + '</ul>';
+    let html = '<h3>Notes 3bet</h3>' + list((THREEBET_POS_NOTES[state.hero] || []).concat(THREEBET_GENERAL_NOTES));
+    (THREEBET_NOTES_BY_PROFILE[cur.profile] || []).forEach((k) => {
+      const n = THREEBET_PROFILE_NOTES[k];
+      html += '<h4>' + n.title + '</h4>' + list(n.lines);
+    });
+    return html;
+  }
+
   function renderSizingNote(cur) {
     const el = $('#sizing-note');
     const note = SIZING_NOTES[cur.kind];
@@ -112,6 +152,7 @@
     } else if (note.pair) {
       html += '<div class="sizing-pair">' + note.pair.map((c) => '<span>' + c + '</span>').join('') + '</div>';
     }
+    if (cur.kind === 'threebet') html += threebetNotesHtml(cur);
     el.innerHTML = html;
     el.hidden = false;
   }
@@ -262,10 +303,12 @@
       const [x, y] = seatXY(pos);
       const seat = seatEls[pos];
       const isHero = pos === state.hero;
+      // Drill : l'action du héros est la question, donc ni jetons ni montant, juste « ? ».
+      const hiddenHero = isHero && state.drill;
 
       let act = null, amt = 0;
       if (isHero) {
-        if (heroAct) [act, amt] = heroAct;
+        if (heroAct && !hiddenHero) [act, amt] = heroAct;
       } else if (state.villain[pos]) {
         act = state.villain[pos];
         amt = act === 'call' ? level : act === 'limp' ? 1 : level <= 1 ? openSize(pos) : level * 3;
@@ -274,7 +317,8 @@
       const folded = !act && i < heroIdx;
 
       let bet = act ? amt : 0;
-      if (!act && pos === 'SB') bet = 0.5;
+      if (hiddenHero) bet = 0;
+      else if (!act && pos === 'SB') bet = 0.5;
       else if (!act && pos === 'BB') bet = 1;
       pot += bet;
 
@@ -288,7 +332,12 @@
       tag.className = 'tag';
       tag.style.background = '';
       tag.style.color = '';
-      if (folded) {
+      if (hiddenHero) {
+        tag.textContent = '?';
+        tag.style.background = window.ACTIONS.raise.color;
+        tag.style.color = window.ACTIONS.raise.text;
+        tag.classList.add('show');
+      } else if (folded) {
         tag.textContent = 'Fold';
         tag.classList.add('show', 'fold');
       } else if (act) {
@@ -419,7 +468,7 @@
       return cur.villain + ' ouvre à ' + fmt(openSize(cur.villain)) + ' BB · ' + cur.caller + ' call · squeeze à ' +
         fmt(cur.spot.size) + ' BB';
     }
-    return cur.villain + ' ouvre à ' + fmt(openSize(cur.villain)) + ' BB · 3bet à ' + fmt(cur.spot.size) + ' BB';
+    return '';
   }
 
   function renderPanel() {
@@ -455,7 +504,7 @@
 
     $('#legend').innerHTML = actionOrder().map((a) => {
       const act = window.ACTIONS[a];
-      const label = ['raise', '3bet', '4bet', 'squeeze', 'iso'].includes(a) ? act.label + ' ' + fmt(spot.size) : act.label;
+      const label = ['raise', '4bet', 'squeeze', 'iso'].includes(a) ? act.label + ' ' + fmt(spot.size) : act.label;
       return '<li><span class="sw" style="background:' + window.ACTIONS[a].color + '"></span>' +
         '<span class="lbl">' + label + '</span>' +
         '<span class="val">' + fmt((totals[a] / TOTAL_COMBOS) * 100) + ' %</span>' +
@@ -493,20 +542,40 @@
     el.innerHTML = '<div class="hhand">' + h + ' <span class="muted">· ' + combos(h) + ' combos</span></div>' + rows + markRow;
   }
 
-  /* ---------- Drill (entraînement à l'open) ---------- */
+  /* ---------- Drill (entraînement à l'open et au 3bet) ---------- */
 
-  // Positions qui ont une range d'open (BB ne peut pas ouvrir).
-  const openPositions = () => POSITIONS.filter((p) => window.RANGES.open[p]);
+  // Modes du menu Drill ; 'all' mélange au hasard les questions des autres modes.
+  const DRILL_MODES = [
+    { id: 'all', label: 'ALL' },
+    { id: 'open', label: 'Open' },
+    { id: 'threebet', label: '3b' },
+  ];
+  // Réponses proposées selon le type de question (dans l'ordre des boutons).
+  const DRILL_ANSWERS = { open: ['fold', 'raise'], threebet: ['fold', 'call', '3bet'] };
+  const pick = (arr) => arr[Math.floor(Math.random() * arr.length)];
+
+  // Situations interrogeables : { hero, villain, byProfile } pour chaque range définie
+  // (open : BB ne peut pas ouvrir ; 3bet : chaque couple héros / ouvreur de RANGES.threebet).
+  function drillSituations(kind) {
+    if (kind === 'open') {
+      return POSITIONS.filter((p) => window.RANGES.open[p])
+        .map((hero) => ({ hero, villain: null, byProfile: window.RANGES.open[hero] }));
+    }
+    return Object.entries(window.RANGES.threebet).flatMap(([hero, byOpener]) =>
+      Object.entries(byOpener).map(([villain, byProfile]) => ({ hero, villain, byProfile })));
+  }
 
   let drillStats = { correct: 0, total: 0 };
   let drillQuestion = null;
   // true une fois la question courante répondue : affiche alors toute la range de l'exercice.
   let drillAnswered = false;
 
-  // Tire une main au hasard pondérée par son nombre de combos (une main offsuit sort plus
-  // souvent qu'une paire, comme à la table).
-  function pickWeightedHand() {
-    const hands = allHands();
+  // Part des questions tirées parmi les mains « border » (le reste : n'importe quelle main).
+  const DRILL_BORDER_SHARE = 0.85;
+
+  // Tire une main au hasard parmi hands, pondérée par son nombre de combos (une main offsuit
+  // sort plus souvent qu'une paire, comme à la table).
+  function pickWeightedHand(hands) {
     const weights = hands.map(combos);
     const total = weights.reduce((a, b) => a + b, 0);
     let r = Math.random() * total;
@@ -517,22 +586,63 @@
     return hands[hands.length - 1];
   }
 
+  // Mains « border » d'une range (freqs : main -> { action: fréquence } sans le fold) : mains à
+  // fréquence mixte, ou dont une case voisine dans la grille (les 8 autour, diagonales comprises) n'a pas
+  // la même action majoritaire. Ce sont les décisions où l'on se trompe, loin des mains évidentes.
+  function borderHands(freqs) {
+    const withFold = (h) => {
+      const f = freqs(h);
+      return Object.assign({ fold: Math.max(0, 1 - Object.values(f).reduce((a, b) => a + b, 0)) }, f);
+    };
+    const main = (h) => {
+      const f = withFold(h);
+      return Object.keys(f).reduce((a, b) => (f[b] > f[a] ? b : a));
+    };
+    const mixed = (h) => Object.values(withFold(h)).some((v) => v > 0.001 && v < 0.999);
+    const out = [];
+    for (let r = 0; r < 13; r++) {
+      for (let c = 0; c < 13; c++) {
+        const h = handAt(r, c);
+        const m = main(h);
+        const edge = [-1, 0, 1].flatMap((di) => [-1, 0, 1].map((dj) => [r + di, c + dj]))
+          .some(([i, j]) => i >= 0 && i < 13 && j >= 0 && j < 13 && main(handAt(i, j)) !== m);
+        if (edge || mixed(h)) out.push(h);
+      }
+    }
+    return out;
+  }
+
   function newDrillQuestion() {
-    const positions = openPositions();
-    const hero = positions[Math.floor(Math.random() * positions.length)];
-    const byProfile = window.RANGES.open[hero];
-    const profiles = PROFILES.map((p) => p.id).filter((id) => byProfile[id]);
-    const profile = profiles[Math.floor(Math.random() * profiles.length)];
+    const kind = state.drill === 'all' ? pick(['open', 'threebet']) : state.drill;
+    const { hero, villain, byProfile } = pick(drillSituations(kind));
+    const profile = pick(PROFILES.map((p) => p.id).filter((id) => byProfile[id]));
     const strat = buildStrategy(byProfile[profile]);
-    const hand = pickWeightedHand();
+    // Fréquences par réponse proposée ; le 3bet / 5bet all-in compte comme un 3bet.
+    const freqsOf = (h) => {
+      const s = strat[h];
+      return kind === 'open'
+        ? { raise: s.raise || 0 }
+        : { '3bet': (s['5bet'] || 0) + (s['3bet'] || 0), call: s.call || 0 };
+    };
+    const border = borderHands(freqsOf);
+    const hand = pickWeightedHand(border.length && Math.random() < DRILL_BORDER_SHARE ? border : allHands());
     // Fréquence mixte : on tire la bonne réponse au prorata de la stratégie (ex. une main
     // ouverte à 50 % sera "raise" une fois sur deux).
-    const correct = Math.random() < (strat[hand].raise || 0) ? 'raise' : 'fold';
+    const freqs = freqsOf(hand);
+    let r = Math.random();
+    const correct = Object.keys(freqs).find((a) => (r -= freqs[a]) < 0) || 'fold';
     state.hero = hero;
     state.profile = profile;
-    state.villain = {};
-    drillQuestion = { hero, profile, hand, correct };
+    state.villain = villain ? { [villain]: 'raise' } : {};
+    drillQuestion = { kind, hero, profile, hand, correct };
     drillAnswered = false;
+    renderDrillButtons();
+  }
+
+  function renderDrillButtons() {
+    $('#drill-actions').innerHTML = DRILL_ANSWERS[drillQuestion.kind].map((a) =>
+      '<button class="drill-btn ' + (a === '3bet' ? 'threebet' : a) + '" type="button" data-answer="' + a + '">' +
+      window.ACTIONS[a].label.toUpperCase() + '</button>').join('');
   }
 
   const SUITS = [{ s: '♠', color: 'black' }, { s: '♥', color: 'red' }, { s: '♦', color: 'red' }, { s: '♣', color: 'black' }];
@@ -584,32 +694,54 @@
     const feedback = $('#drill-feedback');
     feedback.textContent = ok ? 'Correct !' : 'Perdu — la bonne réponse était ' + window.ACTIONS[drillQuestion.correct].label.toLowerCase() + '.';
     feedback.className = 'drill-feedback ' + (ok ? 'correct' : 'wrong');
-    $('#drill-fold').disabled = true;
-    $('#drill-raise').disabled = true;
+    document.querySelectorAll('.drill-btn').forEach((b) => { b.disabled = true; });
     renderGrid();
     renderDrillScore();
 
+    const question = drillQuestion;
     setTimeout(() => {
+      if (drillQuestion !== question) return; // drill arrêté ou relancé entre-temps
       newDrillQuestion();
       render();
       feedback.textContent = '';
       feedback.className = 'drill-feedback';
-      $('#drill-fold').disabled = false;
-      $('#drill-raise').disabled = false;
     }, 1800);
   }
 
-  function toggleDrill() {
-    state.drill = !state.drill;
-    $('#drill-toggle').classList.toggle('active', state.drill);
+  // Bouton Drill : ouvre le menu des modes, ou arrête le drill en cours.
+  function toggleDrill(e) {
+    e.stopPropagation();
     hideMenu();
-    if (state.drill) {
+    if (state.drill) { setDrill(null); return; }
+    $('#drill-menu').hidden = !$('#drill-menu').hidden;
+  }
+
+  function setDrill(mode) {
+    state.drill = mode;
+    $('#drill-menu').hidden = true;
+    const btn = $('#drill-toggle');
+    btn.classList.toggle('active', !!mode);
+    btn.textContent = mode ? 'Drill · ' + DRILL_MODES.find((m) => m.id === mode).label : 'Drill';
+    $('#drill-feedback').textContent = '';
+    $('#drill-feedback').className = 'drill-feedback';
+    if (mode) {
       drillStats = { correct: 0, total: 0 };
       newDrillQuestion();
     } else {
       drillQuestion = null;
     }
     render();
+  }
+
+  function buildDrillMenu() {
+    const menu = $('#drill-menu');
+    DRILL_MODES.forEach(({ id, label }) => {
+      const b = document.createElement('button');
+      b.type = 'button';
+      b.textContent = label;
+      b.addEventListener('click', (e) => { e.stopPropagation(); setDrill(id); });
+      menu.appendChild(b);
+    });
   }
 
   /* ---------- Interactions ---------- */
@@ -632,7 +764,7 @@
   }
 
   function renderPositionsNav() {
-    document.querySelectorAll('.positions button').forEach((b) => {
+    document.querySelectorAll('.positions button[data-pos]').forEach((b) => {
       b.classList.toggle('active', b.dataset.pos === state.hero);
       b.disabled = state.drill;
     });
@@ -646,6 +778,7 @@
     const navRect = $('#positions').getBoundingClientRect();
     const gridRect = gridEl.getBoundingClientRect();
     btn.style.left = (gridRect.left - navRect.left) + 'px';
+    $('#drill-menu').style.left = btn.style.left;
   }
 
   function render() {
@@ -732,6 +865,7 @@
 
   document.addEventListener('click', (e) => {
     if (!menuEl.contains(e.target)) hideMenu();
+    $('#drill-menu').hidden = true;
   });
 
   /* ---------- Profil de la table ---------- */
@@ -764,6 +898,7 @@
 
   function bindKeys() {
     document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') $('#drill-menu').hidden = true;
       if (state.drill) { if (e.key === 'Escape') hideMenu(); return; }
       if (e.key === 'Escape') {
         hideMenu();
@@ -780,13 +915,16 @@
   }
 
   $('#drill-toggle').addEventListener('click', toggleDrill);
-  $('#drill-fold').addEventListener('click', () => answerDrill('fold'));
-  $('#drill-raise').addEventListener('click', () => answerDrill('raise'));
+  $('#drill-actions').addEventListener('click', (e) => {
+    const b = e.target.closest('.drill-btn');
+    if (b && !b.disabled) answerDrill(b.dataset.answer);
+  });
   window.addEventListener('resize', positionDrillToggle);
 
   buildPositions($('#positions'));
   buildTable();
   buildProfiles();
+  buildDrillMenu();
   buildGrid();
   bindKeys();
   selectHero(state.hero);

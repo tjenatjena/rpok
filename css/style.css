@@ -37,15 +37,15 @@ main {
   position: relative;
   display: flex; justify-content: center; gap: 6px; flex-wrap: wrap; flex: none;
 }
-.positions button:not(#drill-toggle) {
+.positions button[data-pos] {
   font: inherit; font-weight: 600; font-size: 14px;
   min-width: 60px; padding: 6px 12px; border-radius: 8px;
   border: 1px solid var(--border); background: var(--surface); color: var(--text);
   cursor: pointer; transition: background .15s, border-color .15s;
 }
-.positions button:not(#drill-toggle):hover:not(:disabled) { border-color: var(--muted); }
-.positions button.active:not(#drill-toggle) { background: var(--accent); border-color: var(--accent); color: #fff; }
-.positions button:not(#drill-toggle):disabled { opacity: .35; cursor: not-allowed; }
+.positions button[data-pos]:hover:not(:disabled) { border-color: var(--muted); }
+.positions button[data-pos].active { background: var(--accent); border-color: var(--accent); color: #fff; }
+.positions button[data-pos]:disabled { opacity: .35; cursor: not-allowed; }
 
 #drill-toggle {
   position: absolute; left: 0; top: 50%; transform: translateY(-50%);
@@ -56,6 +56,21 @@ main {
 }
 #drill-toggle:hover { border-color: var(--muted); }
 #drill-toggle.active { background: var(--accent); border-color: var(--accent); color: #fff; }
+
+.drill-menu {
+  position: absolute; left: 0; top: calc(100% + 4px); z-index: 10;
+  display: flex; flex-direction: column; gap: 3px;
+  padding: 5px; border-radius: 8px;
+  background: var(--surface); border: 1px solid var(--border);
+  box-shadow: 0 8px 24px rgba(0,0,0,.55);
+}
+.drill-menu[hidden] { display: none; }
+.drill-menu button {
+  font: inherit; font-weight: 600; font-size: 13px; color: var(--text);
+  min-width: 84px; padding: 4px 10px; border-radius: 6px; text-align: left;
+  border: 1px solid transparent; background: var(--surface-2); cursor: pointer;
+}
+.drill-menu button:hover { border-color: var(--muted); }
 
 /* ---------- Profil de la table ---------- */
 
@@ -110,6 +125,9 @@ main {
 .sizing-note td:first-child { color: var(--muted); font-weight: 600; }
 .sizing-note td { border-top: 1px solid var(--border); }
 .sizing-pair { display: flex; justify-content: space-between; font-size: 13px; font-weight: 600; }
+.sizing-note table + h3 { margin-top: 12px; }
+.sizing-note h4 { margin: 8px 0 2px; font-size: 12px; font-weight: 600; }
+.note-lines { margin: 0; padding-left: 16px; font-size: 12px; line-height: 1.4; }
 
 /* ---------- Table ---------- */
 
@@ -336,7 +354,8 @@ main {
 .drill-btn:hover:not(:disabled) { filter: brightness(1.15); }
 .drill-btn:disabled { cursor: default; opacity: .7; }
 .drill-btn.fold { background: #2f3a48; }
-.drill-btn.raise { background: #e3b31b; color: #1d232b; }
+.drill-btn.raise, .drill-btn.threebet { background: #e3b31b; color: #1d232b; }
+.drill-btn.call { background: #3fa96b; }
 .drill-score { color: var(--muted); font-size: 13px; }
 
 /* ---------- Responsive ---------- */
