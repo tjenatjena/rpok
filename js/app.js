@@ -2,7 +2,7 @@
   'use strict';
 
   const RANKS = 'AKQJT98765432'.split('');
-  const POSITIONS = ['LJ', 'HJ', 'CO', 'BTN', 'SB', 'BB'];
+  const POSITIONS = ['LJ', 'HJ', 'CO', 'BU', 'SB', 'BB'];
   const TOTAL_COMBOS = 1326;
 
   // Emplacements des sièges sur la table (en % du conteneur), dans le sens horaire
@@ -97,7 +97,7 @@
         ],
       },
     },
-    vs3bet: { title: 'Sizing 4bet', pair: ['IP (×2,2)', 'OOP (×2,7)'] },
+    vs3bet: { title: 'Sizing 4bet' },
     squeeze: { title: 'Sizing squeeze', pair: ['IP (×4,5)', 'OOP (×5)'] },
   };
 
@@ -107,9 +107,9 @@
     LJ: ['Early : 3b linéaire'],
     HJ: ['Early : 3b linéaire'],
     CO: ['Early : 3b linéaire'],
-    BTN: ['BU : 3b polarisé et call la mid range'],
-    SB: ['SB : 3b polarisé', 'Range de call en SB et BB : il faut que l\'OR…'],
-    BB: ['Range de call en SB et BB : il faut que l\'OR…'],
+    BU: ['BU : 3b polarisé et call la mid range'],
+    SB: ['SB : 3b polarisé', 'Range de call en SB et BB : il faut que l\'OR soit tight et fish en BB'],
+    BB: ['Range de call en SB et BB : il faut que l\'OR soit tight et fish en BB'],
   };
   const THREEBET_GENERAL_NOTES = [
     '+ vilain call, plus on 3b mergé',
@@ -152,6 +152,7 @@
     } else if (note.pair) {
       html += '<div class="sizing-pair">' + note.pair.map((c) => '<span>' + c + '</span>').join('') + '</div>';
     }
+    if (cur.kind === 'vs3bet' && !cur.missing) html += '<div class="sizing-pair">IP: x2,2 &amp; OOP: x2,7 (max: ' + fmt(cur.spot.size) + 'bb)</div>';
     if (cur.kind === 'threebet') html += threebetNotesHtml(cur);
     el.innerHTML = html;
     el.hidden = false;
@@ -225,6 +226,21 @@
       s.fold = Math.max(0, 1 - sum);
       strat[h] = s;
     });
+    return strat;
+  }
+
+  // Stratégie d'open du héros pour le profil donné (celui du spot vs3bet affiché, le héros n'ouvre
+  // pas la même range vs. un reg, un nit ou un fish), utilisée en défense vs 3bet pour distinguer
+  // les mains réellement ouvertes puis foldées au 3bet des mains jamais open-raise. Repli sur gto
+  // si ce profil n'a pas de range d'open définie. N'affecte pas parseErrors (qui doit rester celui
+  // du spot affiché).
+  function heroOpenStrategy(profile) {
+    const byProfile = window.RANGES.open[state.hero] || {};
+    const openSpot = byProfile[profile] || byProfile.gto;
+    if (!openSpot) return null;
+    const savedErrors = parseErrors;
+    const strat = buildStrategy(openSpot);
+    parseErrors = savedErrors;
     return strat;
   }
 
@@ -355,7 +371,7 @@
       b.querySelector('.amt').textContent = fmt(bet);
     });
 
-    const [bx, by] = seatXY('BTN');
+    const [bx, by] = seatXY('BU');
     const btn = $('#dealer');
     btn.style.left = lerp(bx, CENTER[0], 0.3) + (bx < 50 ? 4 : bx > 50 ? -4 : 7) + '%';
     btn.style.top = lerp(by, CENTER[1], 0.3) + (by > 50 ? -3 : 3) + '%';
@@ -389,15 +405,26 @@
     return Object.keys(currentSpot().spot.actions).concat('fold');
   }
 
-  function background(s) {
+  // openWeight (optionnel, défense vs 3bet) = fréquence d'open du héros pour cette main : sépare
+  // visuellement le fold au 3bet (gris clair) du fold faute d'avoir même été open-raise (gris foncé).
+  function background(s, openWeight) {
     const stops = [];
     let acc = 0;
+    const push = (color, f) => {
+      if (f <= 0) return;
+      stops.push(color + ' ' + acc * 100 + '%', color + ' ' + (acc + f) * 100 + '%');
+      acc += f;
+    };
     actionOrder().forEach((a) => {
       const f = s[a] || 0;
       if (f <= 0) return;
-      const color = window.ACTIONS[a].color;
-      stops.push(color + ' ' + acc * 100 + '%', color + ' ' + (acc + f) * 100 + '%');
-      acc += f;
+      if (a === 'fold' && openWeight != null) {
+        const foldTo3bet = Math.max(0, Math.min(f, openWeight - (1 - f)));
+        push(window.ACTIONS.fold3bet.color, foldTo3bet);
+        push(window.ACTIONS.fold.color, f - foldTo3bet);
+        return;
+      }
+      push(window.ACTIONS[a].color, f);
     });
     return 'linear-gradient(to right, ' + stops.join(', ') + ')';
   }
@@ -414,9 +441,18 @@
   const markOf = (h) => Object.keys(marks).find((k) => marks[k][h]);
 
   function renderGrid() {
-    const { spot } = currentSpot();
+    const cur = currentSpot();
+    const { spot } = cur;
     strategy = buildStrategy(spot);
     marks = buildMarks(spot);
+    let openWeights = null;
+    if (cur.kind === 'vs3bet' && !cur.missing) {
+      const openStrategy = heroOpenStrategy(cur.profile);
+      if (openStrategy) {
+        openWeights = {};
+        Object.entries(openStrategy).forEach(([h, s]) => { openWeights[h] = 1 - s.fold; });
+      }
+    }
     // Main interrogée dans le drill : entourée une fois la range révélée, pour la repérer.
     const highlight = (state.drill && drillAnswered && drillQuestion) ? drillQuestion.hand : null;
     Object.entries(cellEls).forEach(([h, cell]) => {
@@ -424,12 +460,12 @@
       if (state.drill && !drillAnswered) {
         cell.style.background = 'var(--surface-2)';
         cell.style.boxShadow = '';
-        cell.classList.remove('out');
+        cell.classList.remove('out', 'fold3bet');
         return;
       }
       const s = strategy[h];
       const m = markOf(h);
-      cell.style.background = background(s);
+      cell.style.background = background(s, openWeights ? openWeights[h] : null);
       let shadow = m ? 'inset 0 0 0 3px ' + window.MARKS[m].color : '';
       if (h === highlight) {
         const ring = '0 0 0 2px rgba(0,0,0,.65), 0 0 0 4px #ff2d2d';
@@ -437,13 +473,17 @@
       }
       cell.style.boxShadow = shadow;
       cell.classList.toggle('out', s.fold >= 0.999);
+      // Texte blanc plutôt que gris terne quand le fold de la case est surtout un fold au 3bet
+      // (main réellement ouverte) et non faute d'avoir même été open-raise.
+      const ow = openWeights ? (openWeights[h] || 0) : 0;
+      cell.classList.toggle('fold3bet', s.fold >= 0.999 && ow > 0.5);
     });
   }
 
   function spotTitle(cur) {
     if (cur.kind === 'open') return state.hero + ' — Open';
     if (cur.kind === 'threebet') return state.hero + ' vs ' + cur.villain + ' — 3bet';
-    if (cur.kind === 'vs3bet') return state.hero + ' vs ' + cur.villain + ' — Défense vs 3bet';
+    if (cur.kind === 'vs3bet') return state.hero + ' vs ' + cur.villain + ' — Def vs 3bet';
     if (cur.kind === 'iso') return state.hero + ' vs ' + cur.villain + ' — Iso sur limp';
     if (cur.kind === 'squeeze') return state.hero + ' vs ' + cur.villain + ' + ' + cur.caller + ' — Squeeze';
     return state.hero + ' — Spot non couvert';
@@ -459,10 +499,7 @@
       return "Pas de range pour cette séquence : seuls l'open, le 3bet face à un open, la défense face à un 3bet, l'iso sur limp et le squeeze sont couverts.";
     }
     if (cur.kind === 'open') return '';
-    if (cur.kind === 'vs3bet') {
-      return state.hero + ' ouvre à ' + fmt(openSize(state.hero)) + ' BB · ' + cur.villain + ' 3bet à ' +
-        fmt(openSize(state.hero) * 3) + ' BB · 4bet à ' + fmt(cur.spot.size) + ' BB';
-    }
+    if (cur.kind === 'vs3bet') return '';
     if (cur.kind === 'iso') return cur.villain + ' limp · iso à ' + fmt(cur.spot.size) + ' BB';
     if (cur.kind === 'squeeze') {
       return cur.villain + ' ouvre à ' + fmt(openSize(cur.villain)) + ' BB · ' + cur.caller + ' call · squeeze à ' +
@@ -496,6 +533,18 @@
     Object.entries(strategy).forEach(([h, s]) => {
       actionOrder().forEach((a) => { totals[a] += (s[a] || 0) * combos(h); });
     });
+    // Défense vs 3bet : le héros n'ouvre pas 100 % des mains, donc le fold affiché ne doit
+    // représenter que la part de sa range d'open qui ne défend pas (pas tout le 169-grid).
+    if (cur.kind === 'vs3bet' && !cur.missing) {
+      const openStrategy = heroOpenStrategy(cur.profile);
+      if (openStrategy) {
+        const openCombos = Object.entries(openStrategy)
+          .reduce((acc, [h, s]) => acc + (1 - s.fold) * combos(h), 0);
+        const defended = actionOrder().filter((a) => a !== 'fold')
+          .reduce((acc, a) => acc + totals[a], 0);
+        totals.fold = Math.max(0, openCombos - defended);
+      }
+    }
     const sub = $('#spot-sub');
     sub.classList.toggle('warn', cur.missing);
     sub.textContent = spotSub(cur);
@@ -504,8 +553,11 @@
 
     $('#legend').innerHTML = actionOrder().map((a) => {
       const act = window.ACTIONS[a];
-      const label = ['raise', '4bet', 'squeeze', 'iso'].includes(a) ? act.label + ' ' + fmt(spot.size) : act.label;
-      return '<li><span class="sw" style="background:' + window.ACTIONS[a].color + '"></span>' +
+      const label = ['raise', 'squeeze', 'iso'].includes(a) ? act.label + ' ' + fmt(spot.size) : act.label;
+      // En défense vs 3bet, le total 'fold' ne compte que les mains ouvertes puis foldées :
+      // la pastille reprend donc le gris clair (fold3bet), pas le gris foncé du fold générique.
+      const swatch = (a === 'fold' && cur.kind === 'vs3bet') ? window.ACTIONS.fold3bet.color : window.ACTIONS[a].color;
+      return '<li><span class="sw" style="background:' + swatch + '"></span>' +
         '<span class="lbl">' + label + '</span>' +
         '<span class="val">' + fmt((totals[a] / TOTAL_COMBOS) * 100) + ' %</span>' +
         '<span class="cmb">' + fmt(totals[a]) + ' c.</span></li>';

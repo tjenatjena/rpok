@@ -48,16 +48,21 @@ window.ACTIONS = {
   large: { label: 'Large', color: '#f2d024', text: '#1d232b' },
   call:  { label: 'Call',  color: '#3fa96b' },
   callwhale: { label: 'Call si baleine en blindes', color: '#4f6df5' },
+  callsmall: { label: 'Call si 3b petit', color: '#f2d024', text: '#1d232b' },
+  jam: { label: '4bet All-in', color: '#8e44ad' },
   limp:  { label: 'Limp',  color: '#3fa96b' },
   fold:  { label: 'Fold',  color: '#2f3a48' },
+  // Défense vs 3bet uniquement : portion du fold qui correspond à une main réellement ouverte
+  // puis foldée au 3bet (par opposition aux mains jamais open-raise, en gris foncé ci-dessus).
+  fold3bet: { label: 'Fold au 3bet', color: '#3c4759' },
 };
 
 window.MARKS = {
   call4bet: { label: 'Call 4bet', color: '#4f6df5' },
 };
 
-// BTN face à un open LJ et un call (HJ ou CO) : chart « BTN vs Early ».
-const SQUEEZE_BTN_VS_EARLY = {
+// BU face à un open LJ et un call (HJ ou CO) : chart « BU vs Early ».
+const SQUEEZE_BU_VS_EARLY = {
   gto: {
     size: 13,
     actions: {
@@ -172,7 +177,7 @@ window.RANGES = {
         },
       },
     },
-    BTN: {
+    BU: {
       gto: {
         size: 2.5,
         actions: {
@@ -341,7 +346,7 @@ window.RANGES = {
         },
       },
     },
-    BTN: {
+    BU: {
       LJ: {
         gto: {
           size: 10,
@@ -526,7 +531,7 @@ window.RANGES = {
           },
         },
       },
-      BTN: {
+      BU: {
         gto: {
           size: 10,
           actions: {
@@ -631,7 +636,7 @@ window.RANGES = {
           },
         },
       },
-      BTN: {
+      BU: {
         // supernit : 3bet = cases à bordure jaune du chart, le reste de la range reg est payé.
         gto: {
           size: 12,
@@ -707,28 +712,28 @@ window.RANGES = {
     LJ: {
       HJ: {
         gto: {
-          size: 24,
+          size: 27,
           actions: {
             '4bet': 'AA, KK, AKs, AKo, QQ, AJs:0.5, ATs, KQs, KJs, KTs:0.5, AQo:0.5',
             call:   'JJ-99, AQs, AJs',
           },
         },
         aggro: {
-          size: 24,
+          size: 27,
           actions: {
             '4bet': 'AA, KK, AKs, AKo, QQ, AJs:0.5, ATs:0.5, KQs:0.5, KJs:0.5, KTs:0.5, AQo:0.5',
             call:   'JJ-99, AQs, AJs, ATs, KQs, KJs',
           },
         },
         nit: {
-          size: 24,
+          size: 27,
           actions: {
             '4bet': 'AA, KK, AKs, AKo:0.5, QQ:0.5, AJs:0.5, ATs, KQs, KJs, KTs:0.5, AQo:0.5',
             call:   'AKo, QQ-99, AQs, AJs, 87s, 76s, 65s',
           },
         },
         fish: {
-          size: 24,
+          size: 27,
           actions: {
             '4bet': 'AA, KK, AKs',
             call:   'AKo, QQ-88, AQs, AJs, ATs, KQs, KJs, KTs, AQo',
@@ -737,58 +742,58 @@ window.RANGES = {
       },
       CO: {
         gto: {
-          size: 24,
+          size: 27,
           actions: {
             '4bet': 'AA, KK, AKs, AKo, QQ, AJs:0.5, ATs, KQs, KJs, KTs:0.5, AQo:0.5',
             call:   'JJ-99, AQs, AJs',
           },
         },
         aggro: {
-          size: 24,
+          size: 27,
           actions: {
             '4bet': 'AA, KK, AKs, AKo, QQ, AJs:0.5, ATs:0.5, KQs:0.5, KJs:0.5, KTs:0.5, AQo:0.5',
             call:   'JJ-99, AQs, AJs, ATs, KQs, KJs',
           },
         },
         nit: {
-          size: 24,
+          size: 27,
           actions: {
             '4bet': 'AA, KK, AKs, AKo:0.5, QQ:0.5, AJs:0.5, ATs, KQs, KJs, KTs:0.5, AQo:0.5',
             call:   'AKo, QQ-99, AQs, AJs, 87s, 76s, 65s',
           },
         },
         fish: {
-          size: 24,
+          size: 27,
           actions: {
             '4bet': 'AA, KK, AKs',
             call:   'AKo, QQ-88, AQs, AJs, ATs, KQs, KJs, KTs, AQo',
           },
         },
       },
-      BTN: {
+      BU: {
         gto: {
-          size: 24,
+          size: 27,
           actions: {
             '4bet': 'AA, KK, AKs, AKo, QQ, JJ:0.5, AJs:0.5, ATs, KQs:0.5, KJs, KTs:0.5, QJs, AQo:0.5, KQo:0.5',
             call:   'JJ-99, AQs, AJs, KQs',
           },
         },
         aggro: {
-          size: 24,
+          size: 27,
           actions: {
             '4bet': 'AA, KK, AKs, AKo, QQ, JJ:0.5, AJs:0.5, ATs:0.5, KQs:0.5, KJs:0.5, KTs:0.5, QJs:0.5, AQo:0.5, KQo:0.5',
             call:   'JJ-99, AQs, AJs, ATs, KQs, KJs, QJs',
           },
         },
         nit: {
-          size: 24,
+          size: 27,
           actions: {
             '4bet': 'AA, KK, AKs, AKo:0.5, QQ:0.5, JJ:0.5, AJs:0.5, ATs, KQs:0.5, KJs, KTs:0.5, QJs, AQo:0.5, KQo:0.5',
             call:   'AKo, QQ-99, AQs, AJs, KQs, 87s, 76s, 65s',
           },
         },
         fish: {
-          size: 24,
+          size: 27,
           actions: {
             '4bet': 'AA, KK, AKs, AQo:0.5, KQo:0.5',
             call:   'AKo, QQ-88, AQs, AJs, ATs, KQs, KJs, KTs, QJs',
@@ -797,28 +802,28 @@ window.RANGES = {
       },
       SB: {
         gto: {
-          size: 22,
+          size: 27,
           actions: {
             '4bet': 'AA, KK, AKs, AKo:0.5, QQ:0.5, JJ:0.5, AJs, ATs, KTs:0.5, AQo:0.5',
             call:   'AKo, QQ-99, AQs, KQs',
           },
         },
         aggro: {
-          size: 22,
+          size: 27,
           actions: {
             '4bet': 'AA, KK, AKs, AKo:0.5, QQ:0.5, JJ:0.5, AJs:0.5, ATs:0.5, KTs:0.5, AQo:0.5',
             call:   'AKo, QQ-99, AQs, AJs, ATs, KQs, KJs',
           },
         },
         nit: {
-          size: 22,
+          size: 27,
           actions: {
             '4bet': 'AA, KK, AKs, AKo:0.5, QQ:0.5, JJ:0.5, AJs, ATs, KTs:0.5, AQo:0.5',
             call:   'AKo, QQ-99, AQs, KQs, 87s, 76s, 65s',
           },
         },
         fish: {
-          size: 22,
+          size: 27,
           actions: {
             '4bet': 'AA, KK, AQo:0.5',
             call:   'AKs, AKo, QQ-88, AQs, AJs, ATs, KQs, KJs, KTs',
@@ -827,28 +832,28 @@ window.RANGES = {
       },
       BB: {
         gto: {
-          size: 22,
+          size: 27,
           actions: {
             '4bet': 'AA, KK, AKs, AKo:0.5, QQ:0.5, JJ:0.5, AJs, ATs, KTs:0.5, AQo:0.5',
             call:   'AKo, QQ-99, AQs, KQs',
           },
         },
         aggro: {
-          size: 22,
+          size: 27,
           actions: {
             '4bet': 'AA, KK, AKs, AKo:0.5, QQ:0.5, JJ:0.5, AJs:0.5, ATs:0.5, KTs:0.5, AQo:0.5',
             call:   'AKo, QQ-99, AQs, AJs, ATs, KQs, KJs',
           },
         },
         nit: {
-          size: 22,
+          size: 27,
           actions: {
             '4bet': 'AA, KK, AKs, AKo:0.5, QQ:0.5, JJ:0.5, AJs, ATs, KTs:0.5, AQo:0.5',
             call:   'AKo, QQ-99, AQs, KQs, 87s, 76s, 65s',
           },
         },
         fish: {
-          size: 22,
+          size: 27,
           actions: {
             '4bet': 'AA, KK, AQo:0.5',
             call:   'AKs, AKo, QQ-88, AQs, AJs, ATs, KQs, KJs, KTs',
@@ -859,16 +864,16 @@ window.RANGES = {
     HJ: {
       CO: {
         gto: {
-          size: 24,
+          size: 27,
           actions: {
             '4bet': 'QQ+, AKs, AKo:0.7, JJ:0.3, A5s, A4s:0.5',
             call:   'JJ-77, AQs-A9s, AQo:0.7, KQs-KTs, QJs, QTs, JTs, T9s, 98s, AKo',
           },
         },
       },
-      BTN: {
+      BU: {
         gto: {
-          size: 24,
+          size: 27,
           actions: {
             '4bet': 'QQ+, AKs, AKo:0.7, JJ:0.3, A5s, A4s:0.5',
             call:   'JJ-77, AQs-A9s, AQo:0.7, KQs-KTs, QJs, QTs, JTs, T9s, 98s, AKo',
@@ -877,7 +882,7 @@ window.RANGES = {
       },
       SB: {
         gto: {
-          size: 22,
+          size: 27,
           actions: {
             '4bet': 'QQ+, AKs, AKo:0.6, JJ:0.3, A5s, A4s:0.5',
             call:   'JJ-55, AQs-A8s, AQo, AJo:0.5, KQs-KTs, KQo:0.5, QJs, QTs, JTs, T9s, 98s, 87s, AKo',
@@ -886,7 +891,7 @@ window.RANGES = {
       },
       BB: {
         gto: {
-          size: 22,
+          size: 27,
           actions: {
             '4bet': 'QQ+, AKs, AKo:0.6, JJ:0.3, A5s, A4s:0.5',
             call:   'JJ-55, AQs-A8s, AQo, AJo:0.5, KQs-KTs, KQo:0.5, QJs, QTs, JTs, T9s, 98s, 87s, AKo',
@@ -895,9 +900,9 @@ window.RANGES = {
       },
     },
     CO: {
-      BTN: {
+      BU: {
         gto: {
-          size: 24,
+          size: 27,
           actions: {
             '4bet': 'JJ+, AKs, AQs:0.3, AKo, TT:0.3, A5s, A4s, KQs:0.3',
             call:   'TT-66, AQs-A8s, AQo, AJo:0.5, KQs-K9s, KQo:0.5, QJs, QTs, JTs, J9s, T9s, 98s, 87s, 76s',
@@ -906,7 +911,7 @@ window.RANGES = {
       },
       SB: {
         gto: {
-          size: 22,
+          size: 27,
           actions: {
             '4bet': 'JJ+, AKs, AQs:0.3, AKo, TT:0.3, A5s, A4s, KQs:0.3',
             call:   'TT-44, AQs-A7s, AQo, AJo, KQs-K9s, KQo, QJs, Q9s, JTs, J9s, T9s, T8s, 98s, 87s, 76s, 65s',
@@ -915,7 +920,7 @@ window.RANGES = {
       },
       BB: {
         gto: {
-          size: 22,
+          size: 27,
           actions: {
             '4bet': 'JJ+, AKs, AQs:0.3, AKo, TT:0.3, A5s, A4s, KQs:0.3',
             call:   'TT-44, AQs-A7s, AQo, AJo, KQs-K9s, KQo, QJs, Q9s, JTs, J9s, T9s, T8s, 98s, 87s, 76s, 65s',
@@ -923,19 +928,42 @@ window.RANGES = {
         },
       },
     },
-    BTN: {
+    BU: {
       SB: {
         gto: {
-          size: 22,
+          size: 27,
           actions: {
-            '4bet': 'TT+, AKs, AQs:0.5, AKo, AQo:0.3, A5s, A4s, A3s:0.5, K9s:0.3, 76s:0.3',
-            call:   '99-22, AQs-A6s, AQo, AJo, ATo:0.5, KQs-K8s, KQo, KJo:0.5, QJs-Q9s, JTs, J9s, T9s, T8s, 98s, 97s, 87s, 86s, 76s, 65s, 54s',
+            '4bet':     'AA, KK, QQ, JJ:0.5, AKs, A9s, A8s:0.5, QTs:0.5, AKo, AQo:0.5, AJo:0.5',
+            call:       'JJ:0.4987, TT, 99, AQs, AJs, 88, ATs, KQs, KJs, KTs, AQo:0.5',
+            callsmall:  '77, QJs, 66, QTs:0.5, JTs, T9s',
+          },
+        },
+        nit: {
+          size: 27,
+          actions: {
+            '4bet': 'AA, KK, QQ, JJ:0.4987, AKs, A9s, A8s:0.4960, QTs:0.5, AKo, AQo:0.5, AJo:0.4987',
+            call:   'JJ:0.4987, TT, 99, AQs, AJs, 88, ATs, KQs, 77, KJs:0.5, AQo:0.5, 76s, 65s, 54s',
+          },
+        },
+        fish: {
+          size: 27,
+          actions: {
+            '4bet': 'AA, KK, AKs, AKo',
+            call:   'QQ, JJ, TT, 99, AQs, AJs, 88, ATs, KQs, 77, 66, KJs, KTs, QJs, QTs, JTs, AQo, T9s',
+          },
+        },
+        aggro: {
+          size: 27,
+          actions: {
+            '4bet': 'AA, KK, QQ, AKs, A9s, A8s:0.5, QTs:0.5, AQo:0.5, AJo:0.5',
+            jam:    'JJ, TT, AKo',
+            call:   '99, AQs, AJs, 88, ATs, KQs, KJs, KTs, QJs, QTs:0.5, JTs, AQo:0.5',
           },
         },
       },
       BB: {
         gto: {
-          size: 22,
+          size: 27,
           actions: {
             '4bet': 'TT+, AKs, AQs:0.5, AKo, AQo:0.3, A5s, A4s, A3s:0.5, K9s:0.3, 76s:0.3',
             call:   '99-22, AQs-A6s, AQo, AJo, ATo:0.5, KQs-K8s, KQo, KJo:0.5, QJs-Q9s, JTs, J9s, T9s, T8s, 98s, 97s, 87s, 86s, 76s, 65s, 54s',
@@ -946,10 +974,24 @@ window.RANGES = {
     SB: {
       BB: {
         gto: {
-          size: 24,
+          size: 27,
           actions: {
-            '4bet': 'TT+, AKs, AQs:0.5, AKo, AQo:0.3, A5s, A4s, A3s:0.5, K9s:0.3, 65s:0.3',
-            call:   '99-22, AQs-A6s, AQo, AJo, ATo:0.5, KQs-K8s, KQo, KJo:0.5, QJs-Q9s, JTs, J9s, T9s, T8s, 98s, 87s, 76s, 65s, 54s',
+            '4bet': 'AA, KK, QQ, JJ, TT, AKs, AQs, A6s, A4s, Q9s:0.5, AKo, K5s, AQo, AJo, ATo:0.5, KQo, KJo:0.5',
+            call:   '99, AJs, 88, ATs, A9s, A8s, KQs, 77, A7s, KJs, KTs, A5s, K9s, QJs, 66, QTs, Q9s:0.5, JTs, 55, J9s:0.5, T9s',
+          },
+        },
+        nit: {
+          size: 27,
+          actions: {
+            '4bet': 'AA, KK, QQ, AKs, AQs, A6s, A4s, Q9s:0.5, AKo, K5s, AQo, AJo, ATo:0.5, KQo, KJo:0.5',
+            call:   'JJ, TT, 99, AJs, 88, ATs, KQs, 77, KJs, 76s, 65s',
+          },
+        },
+        fish: {
+          size: 27,
+          actions: {
+            '4bet': 'AA, KK, AKs, AKo',
+            call:   'QQ, JJ, TT, 99, AQs, AJs, 88, ATs, KQs, 77, KJs, AQo:0.5, 76s, 65s',
           },
         },
       },
@@ -957,10 +999,10 @@ window.RANGES = {
   },  // Squeeze : un vilain ouvre, un autre call, puis le héros relance.
   // Seuls les profils définis ici sont proposés dans le menu pour le spot.
   squeeze: {
-    BTN: {
+    BU: {
       LJ: {
-        HJ: SQUEEZE_BTN_VS_EARLY,
-        CO: SQUEEZE_BTN_VS_EARLY,
+        HJ: SQUEEZE_BU_VS_EARLY,
+        CO: SQUEEZE_BU_VS_EARLY,
       },
       HJ: {
         CO: {
@@ -977,7 +1019,7 @@ window.RANGES = {
     },
     SB: {
       CO: {
-        BTN: {
+        BU: {
           gto: {
             size: 15,
             actions: {
@@ -990,7 +1032,7 @@ window.RANGES = {
     },
     BB: {
       CO: {
-        BTN: {
+        BU: {
           gto: {
             size: 15,
             actions: {
@@ -1006,7 +1048,7 @@ window.RANGES = {
     },
   },
 };
-// Iso sur limp : un seul vilain limp avant le héros. Pour LJ/HJ/CO/BTN/SB en tant que héros, même
+// Iso sur limp : un seul vilain limp avant le héros. Pour LJ/HJ/CO/BU/SB en tant que héros, même
 // range quel que soit le limpeur (toujours en position postflop sur lui) : objet partagé ci-dessous,
 // référencé pour chaque position de limpeur possible (voir CLAUDE.md).
 const ISO_HJ = {
@@ -1039,7 +1081,7 @@ const ISO_CO = {
     },
   },
 };
-const ISO_BTN = {
+const ISO_BU = {
   limp528: {
     size: 4,
     actions: {
@@ -1069,7 +1111,7 @@ const ISO_SB = {
     },
   },
 };
-// BB face à un limpeur "en position" (LJ/HJ/CO/BTN : ils auront la position postflop sur BB).
+// BB face à un limpeur "en position" (LJ/HJ/CO/BU : ils auront la position postflop sur BB).
 const ISO_BB_VS_IP = {
   limp528: {
     size: 5,
@@ -1090,14 +1132,14 @@ const ISO_BB_VS_IP = {
 window.RANGES.iso = {
   HJ: { LJ: ISO_HJ },
   CO: { LJ: ISO_CO, HJ: ISO_CO },
-  BTN: { LJ: ISO_BTN, HJ: ISO_BTN, CO: ISO_BTN },
-  SB: { LJ: ISO_SB, HJ: ISO_SB, CO: ISO_SB, BTN: ISO_SB },
+  BU: { LJ: ISO_BU, HJ: ISO_BU, CO: ISO_BU },
+  SB: { LJ: ISO_SB, HJ: ISO_SB, CO: ISO_SB, BU: ISO_SB },
   // BB vs SB (BB aura la position postflop) : range bien plus large, différente par profil de limpeur.
   BB: {
     LJ: ISO_BB_VS_IP,
     HJ: ISO_BB_VS_IP,
     CO: ISO_BB_VS_IP,
-    BTN: ISO_BB_VS_IP,
+    BU: ISO_BB_VS_IP,
     SB: {
       limp0100: {
         size: 7,

@@ -284,6 +284,7 @@ main {
   transition: filter .1s;
 }
 .cell.out { color: #7f8b9a; text-shadow: none; }
+.cell.out.fold3bet { color: #98a2af; text-shadow: none; }
 .cell:hover { filter: brightness(1.25); outline: 2px solid #fff; outline-offset: -2px; }
 .cell.drill-hit { position: relative; z-index: 2; }
 
