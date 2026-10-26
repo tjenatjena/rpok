@@ -93,8 +93,21 @@
         rows: [
           ['IP (×3,3)', '7 bb', '8,5 bb', '10 bb'],
           ['SB (×4,3)', '9 bb', '11 bb', '13 bb'],
-          ['BB (×4,7)', '9,5 bb', '12 bb', '14 bb'],
+          ['BB liné', '9 bb', '11 bb', '13 bb'],
+          ['BB pola', '10 bb', '13 bb', '15 bb'],
         ],
+        // Seule la ligne de la position du héros est affichée (IP = LJ/HJ/CO/BU).
+        rowFor: (hero) => (hero === 'SB' || hero === 'BB' ? hero : 'IP'),
+      },
+      // Tableaux propres à un couple héros / ouvreur, à la place du tableau général.
+      tables: {
+        'BB vs SB': {
+          head: ['', '2,5x', '3x', '3,5x'],
+          rows: [
+            ['BB liné', '7,5 bb', '9 bb', '10,5 bb'],
+            ['BB pola', '9,5 bb', '11 bb', '12,5 bb'],
+          ],
+        },
       },
     },
     vs3bet: { title: 'Sizing 4bet' },
@@ -145,9 +158,12 @@
     const note = SIZING_NOTES[cur.kind];
     if (!note) { el.hidden = true; el.innerHTML = ''; return; }
     let html = '<h3>' + note.title + '</h3>';
-    if (note.table) {
-      html += '<table><thead><tr>' + note.table.head.map((h) => '<th>' + h + '</th>').join('') + '</tr></thead><tbody>' +
-        note.table.rows.map((r) => '<tr>' + r.map((c) => '<td>' + c + '</td>').join('') + '</tr>').join('') +
+    const table = (note.tables && note.tables[state.hero + ' vs ' + cur.villain]) || note.table;
+    if (table) {
+      const { rows, rowFor } = table;
+      const shown = rowFor ? rows.filter((r) => r[0].startsWith(rowFor(state.hero) + ' ')) : rows;
+      html += '<table><thead><tr>' + table.head.map((h) => '<th>' + h + '</th>').join('') + '</tr></thead><tbody>' +
+        shown.map((r) => '<tr>' + r.map((c) => '<td>' + c + '</td>').join('') + '</tr>').join('') +
         '</tbody></table>';
     } else if (note.pair) {
       html += '<div class="sizing-pair">' + note.pair.map((c) => '<span>' + c + '</span>').join('') + '</div>';
@@ -553,7 +569,9 @@
 
     $('#legend').innerHTML = actionOrder().map((a) => {
       const act = window.ACTIONS[a];
-      const label = ['raise', 'squeeze', 'iso'].includes(a) ? act.label + ' ' + fmt(spot.size) : act.label;
+      // "sizes" : sizing propre à une action du spot (ex. 3b linéaire 9bb / polarisé 11bb).
+      const label = ['raise', 'squeeze', 'iso'].includes(a) ? act.label + ' ' + fmt(spot.size)
+        : (spot.sizes && spot.sizes[a]) ? act.label + ' ' + fmt(spot.sizes[a]) + 'bb' : act.label;
       // En défense vs 3bet, le total 'fold' ne compte que les mains ouvertes puis foldées :
       // la pastille reprend donc le gris clair (fold3bet), pas le gris foncé du fold générique.
       const swatch = (a === 'fold' && cur.kind === 'vs3bet') ? window.ACTIONS.fold3bet.color : window.ACTIONS[a].color;
@@ -674,7 +692,7 @@
       const s = strat[h];
       return kind === 'open'
         ? { raise: s.raise || 0 }
-        : { '3bet': (s['5bet'] || 0) + (s['3bet'] || 0), call: s.call || 0 };
+        : { '3bet': ['5bet', '3bet', '3bvalue', '3blin', '3bpol'].reduce((t, a) => t + (s[a] || 0), 0), call: s.call || 0 };
     };
     const border = borderHands(freqsOf);
     const hand = pickWeightedHand(border.length && Math.random() < DRILL_BORDER_SHARE ? border : allHands());
