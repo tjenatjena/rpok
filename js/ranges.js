@@ -49,8 +49,9 @@ window.ACTIONS = {
   '3bpol':   { label: '3b polarisé', color: '#c39bd3', text: '#1d232b' },
   '4bet': { label: '4bet',  color: '#e0523f' },
   squeeze: { label: 'Squeeze', color: '#d93b3b' },
-  iso:   { label: 'Iso',   color: '#e3b31b', text: '#1d232b' },
-  large: { label: 'Large', color: '#f2d024', text: '#1d232b' },
+  iso:   { label: 'Iso',   color: '#9b1c1c' },
+  // "sizedLabel" : libellé dans la légende quand le spot donne un sizing propre (champ "sizes").
+  large: { label: 'Large', sizedLabel: 'Iso', color: '#f2d024', text: '#1d232b' },
   call:  { label: 'Call',  color: '#3fa96b' },
   callwhale: { label: 'Call si baleine en blindes', color: '#4f6df5' },
   callsmall: { label: 'Call si 3b petit', color: '#f2d024', text: '#1d232b' },
@@ -713,6 +714,16 @@ window.RANGES = {
             call: '99-22, AJs-A2s, K2s+, Q2s+, J2s+, T3s+, 95s+, 85s+, 74s+, 63s+, 53s+, 43s, AQo-A6o, K9o+, Q9o+, J9o+, T9o',
           },
         },
+        // SB 16-60 (16 % PR / 60 % limp) qui raise au lieu de limper.
+        limp1660: {
+          size: 9,
+          actions: {
+            '3bet': 'AA, KK, QQ, JJ, TT, 99, AKs, AQs, AKo, AQo',
+            call:   'AJs, 88, ATs, A9s, A8s, KQs, 77, A7s, KJs, A6s, KTs, A5s, K9s, QJs, 66, A4s, K8s, QTs, ' +
+                    'A3s, K7s, Q9s, A2s, JTs, K6s, Q8s, 55, J9s, K5s, K4s, AJo, K3s, T9s, 44, K2s, T8s, 98s, ' +
+                    'KQo, 33, 97s, KJo, 87s, QJo, 22, 86s, 76s, 75s, 65s, 64s, 54s, 53s, 43s',
+          },
+        },
       },
     },
   },
@@ -1330,26 +1341,37 @@ window.RANGES.iso = {
     SB: {
       limp0100: {
         size: 7,
+        sizes: { large: 4 },
         actions: {
-          iso:   'KK+, AKs, AKo, K7o, K6o, A3o, A2o',
-          large: 'A8s-AQs, K9s+, QQ, Q9s+, AQo, KQo, JJ, J9s+, AJo, TT, T9s, ATo, 99-77',
+          iso:   'AA, KK, QQ, JJ, AKs, AQs, AJs, AKo, AQo, AJo, T2s, 93s, 92s, K6o, 83s, K5o, 82s, K4o, ' +
+                 'Q6o, 73s, K3o, Q5o, 72s, J6o, K2o, Q4o, J5o, Q3o, 62s, J4o, Q2o, T6o, J3o, T5o, J2o, ' +
+                 'T4o, 95o, T3o, 94o, T2o, 93o, 84o, 92o, 83o, 74o, 82o, 73o, 72o, 63o, 62o, 53o, 52o',
+          large: 'TT, 99, 88, ATs, A9s, A8s, KQs, 77, A7s, KJs, A6s, KTs, A5s, K9s, QJs, 66, A4s, K8s, ' +
+                 'QTs, A3s, K7s, Q9s, A2s, JTs, K6s, Q8s, 55, J9s, Q7s, J8s, J7s, T9s, 44, ATo, T8s, ' +
+                 'A9o, T7s, 98s, A8o, KQo, 33, 97s, A7o, KJo, KTo, 87s, QJo, 22, QTo, 76s, JTo, 65s, 54s',
         },
       },
       limp1660: {
         size: 7,
+        sizes: { large: 4 },
         actions: {
-          iso:   'AA, KK, QQ, JJ, TT, 66, 44, 33, AJs+, QJs, T2s, 93s, 92s, 83s, 82s, 73s, 72s, 65s, 62s, ' +
-                 'ATo+, KTo+, K2o-K5o, QTo+, JTo, J6o, T6o',
-          large: '99-77, 55, 22, A2s-ATs, K6s-KQs, Q7s-QTs, J7s-JTs, T7s-T9s, 97s+, 76s, 54s, ' +
-                 'A7o-A9o, K9o, K6o, Q9o, Q6o',
+          iso:   'AA, KK, QQ, JJ, TT, 99, AKs, AQs, AJs, 88, ATs, A9s, A8s, KQs, 77, 66, 55, AKo, AQo, AJo, ' +
+                 '44, ATo, A9o, A8o, 33, 22, T2s, 93s, 92s, K6o, 83s, K5o, 82s, K4o, Q6o, 73s, K3o, Q5o, ' +
+                 '72s, J6o, K2o, Q4o, J5o, Q3o, 62s, J4o, Q2o, T6o, J3o, T5o, J2o, T4o, 95o, T3o, 94o, ' +
+                 'T2o, 93o, 84o, 92o, 83o, 74o, 82o, 73o, 64o, 72o, 63o, 62o, 53o, 52o',
+          large: 'A7s, KJs, A6s, KTs, A5s, K9s, QJs, A4s, K8s, QTs, A3s, K7s, Q9s, A2s, JTs, K6s, Q8s, ' +
+                 'J9s, K5s, Q7s, J8s, K4s, Q6s, J7s, K3s, Q5s, T9s, J6s, K2s, Q4s, T8s, J5s, T7s, 98s, ' +
+                 'KQo, T6s, 97s, A7o, KJo, 96s, A6o, KTo, 87s, A5o, K9o, QJo, 86s, QTo, 85s, Q9o, 76s, ' +
+                 'JTo, 75s, J9o, 65s, T9o, 64s, 54s',
         },
       },
       limp037: {
         size: 7,
+        sizes: { large: 4 },
         actions: {
-          iso:   '33+, A8s+, KQs, 54s, ATo+, KQo',
-          large: '22, A7s-A2s, K4s-KJs, Q4s-QJs, J5s-JTs, T6s-T9s, 96s-98s, 86s+, 75s+, 65s, ' +
-                 'A5o-A9o, K9o-KJo, Q9o-QJo, J9o+, T9o',
+          iso:   'AA, KK, AKs, AKo, A3o, K7o, A2o, K6o',
+          large: 'QQ, JJ, TT, 99, AQs, AJs, 88, ATs, A9s, A8s, KQs, 77, KJs, KTs, K9s, QJs, QTs, Q9s, ' +
+                 'JTs, J9s, AQo, AJo, T9s, ATo, KQo',
         },
       },
     },

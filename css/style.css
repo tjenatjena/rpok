@@ -141,8 +141,11 @@ main {
 .sizing-note td { border-top: 1px solid var(--border); }
 .sizing-pair { display: flex; justify-content: space-between; font-size: 13px; font-weight: 600; }
 .sizing-note table + h3 { margin-top: 12px; }
+.sizing-line { font-size: 13px; font-weight: 600; white-space: nowrap; }
+.sizing-line + h3 { margin-top: 12px; }
 .sizing-note h4 { margin: 8px 0 2px; font-size: 12px; font-weight: 600; }
 .note-lines { margin: 0; padding-left: 16px; font-size: 12px; line-height: 1.4; }
+.note-lines.gap, .sizing-note h4.gap { margin-top: 1.4em; }
 
 /* ---------- Table ---------- */
 

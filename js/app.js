@@ -111,6 +111,21 @@
         },
       },
     },
+    iso: {
+      title: 'Sizing iso',
+      table: {
+        inline: true,
+        rows: [
+          ['UTG à CO', '3,5x'],
+          ['BU', '4x'],
+          ['OOP', '5x'],
+          ['BB vs SB', '4x mini (pas de max)'],
+        ],
+        // Seule la ligne du héros est affichée (OOP = SB, ou BB face à un limpeur LJ/HJ/CO/BU).
+        rowFor: (hero, villain) => (hero === 'BB' && villain === 'SB' ? 'BB vs SB'
+          : hero === 'BU' ? 'BU' : (hero === 'SB' || hero === 'BB') ? 'OOP' : 'UTG à CO'),
+      },
+    },
     vs3bet: { title: 'Sizing 4bet' },
     squeeze: { title: 'Sizing squeeze', pair: ['IP (×4,5)', 'OOP (×5)'] },
   };
@@ -144,8 +159,48 @@
     fish: ['fish'],
   };
 
+  // Notes iso sur limp (voir notes perso) : identiques pour tous les spots d'iso.
+  const ISO_FUNDAMENTALS = [
+    'Aggressivité des joueurs derrière (%3b)',
+    '%VPIP &amp; %CC des joueurs derrière',
+    'Stack du limper',
+  ];
+  const ISO_NOTES = [
+    'vs. passif : Iso énormément',
+    'vs. aggro : Objectif top paire donc pas iso PP &amp; SC',
+    'Donner énormément de crédit au limp reraise',
+    'Big sizing d\'iso si baleine',
+  ];
+
+  // Ajoutées après une ligne vide, selon le profil du limpeur.
+  const ISO_PROFILE_NOTES = {
+    limp528: [
+      'Iso une range LINEAIRE et PROGRESSIVE',
+      '3b uniquement le top de range',
+    ],
+    limp050: [
+      'Iso une range LINEAIRE et PROGRESSIVE',
+      'En SB overlimp ssi fish passif en BB : ajouter 22, 33, 44 &amp; tous les Axs et Kxs',
+    ],
+    // Profil propre au BB vs SB : notes groupées sous un titre.
+    limp0100: [
+      { title: 'vs. Limp/fold', lines: ['Pas de gros sizing (4x only)', 'Stratégie polarisée', 'Garder un cœur de range de check'] },
+      { title: 'vs. Limp/call', lines: ['Polarisé à 7x', 'Mergé à 4x'] },
+    ],
+  };
+
+  const list = (lines, cls) => '<ul class="note-lines' + (cls ? ' ' + cls : '') + '">' +
+    lines.map((l) => '<li>' + l + '</li>').join('') + '</ul>';
+
+  function isoNotesHtml(cur) {
+    const extra = ISO_PROFILE_NOTES[cur.profile];
+    const extraHtml = !extra ? ''
+      : typeof extra[0] === 'string' ? list(extra, 'gap')
+      : extra.map((g, i) => '<h4' + (i === 0 ? ' class="gap"' : '') + '>' + g.title + '</h4>' + list(g.lines)).join('');
+    return '<h3>Fondamentaux</h3>' + list(ISO_FUNDAMENTALS) + list(ISO_NOTES, 'gap') + extraHtml;
+  }
+
   function threebetNotesHtml(cur) {
-    const list = (lines) => '<ul class="note-lines">' + lines.map((l) => '<li>' + l + '</li>').join('') + '</ul>';
     let html = '<h3>Notes 3bet</h3>' + list((THREEBET_POS_NOTES[state.hero] || []).concat(THREEBET_GENERAL_NOTES));
     (THREEBET_NOTES_BY_PROFILE[cur.profile] || []).forEach((k) => {
       const n = THREEBET_PROFILE_NOTES[k];
@@ -162,8 +217,11 @@
     const table = (note.tables && note.tables[state.hero + ' vs ' + cur.villain]) || note.table;
     if (table) {
       const { rows, rowFor } = table;
-      const shown = rowFor ? rows.filter((r) => r[0].startsWith(rowFor(state.hero) + ' ')) : rows;
-      html += '<table><thead><tr>' + table.head.map((h) => '<th>' + h + '</th>').join('') + '</tr></thead><tbody>' +
+      const row = rowFor && rowFor(state.hero, cur.villain);
+      const shown = row ? rows.filter((r) => r[0] === row || r[0].startsWith(row + ' ')) : rows;
+      // "inline" : chaque ligne en texte sur une seule ligne, sans tableau.
+      html += table.inline ? shown.map((r) => '<div class="sizing-line">' + r.join(' : ') + '</div>').join('')
+        : '<table>' + (table.head ? '<thead><tr>' + table.head.map((h) => '<th>' + h + '</th>').join('') + '</tr></thead>' : '') + '<tbody>' +
         shown.map((r) => '<tr>' + r.map((c) => '<td>' + c + '</td>').join('') + '</tr>').join('') +
         '</tbody></table>';
     } else if (note.pair) {
@@ -171,6 +229,7 @@
     }
     if (cur.kind === 'vs3bet' && !cur.missing) html += '<div class="sizing-pair">IP: x2,2 &amp; OOP: x2,7 (max: ' + fmt(cur.spot.size) + 'bb)</div>';
     if (cur.kind === 'threebet') html += threebetNotesHtml(cur);
+    if (cur.kind === 'iso') html += isoNotesHtml(cur);
     el.innerHTML = html;
     el.hidden = false;
   }
@@ -508,12 +567,12 @@
   }
 
   function spotTitle(cur) {
-    if (cur.kind === 'open') return state.hero + ' — Open';
-    if (cur.kind === 'threebet') return state.hero + ' vs ' + cur.villain + ' — 3bet';
-    if (cur.kind === 'vs3bet') return state.hero + ' vs ' + cur.villain + ' — Def vs 3bet';
-    if (cur.kind === 'iso') return state.hero + ' vs ' + cur.villain + ' — Iso sur limp';
-    if (cur.kind === 'squeeze') return state.hero + ' vs ' + cur.villain + ' + ' + cur.caller + ' — Squeeze';
-    return state.hero + ' — Spot non couvert';
+    if (cur.kind === 'open') return state.hero + ' – Open';
+    if (cur.kind === 'threebet') return state.hero + ' vs ' + cur.villain + ' – 3bet';
+    if (cur.kind === 'vs3bet') return state.hero + ' vs ' + cur.villain + ' – Def vs 3bet';
+    if (cur.kind === 'iso') return state.hero + ' vs ' + cur.villain + ' – Iso sur limp';
+    if (cur.kind === 'squeeze') return state.hero + ' vs ' + cur.villain + ' + ' + cur.caller + ' – Squeeze';
+    return state.hero + ' – Spot non couvert';
   }
 
   function spotSub(cur) {
@@ -527,7 +586,6 @@
     }
     if (cur.kind === 'open') return '';
     if (cur.kind === 'vs3bet') return '';
-    if (cur.kind === 'iso') return cur.villain + ' limp · iso à ' + fmt(cur.spot.size) + ' BB';
     if (cur.kind === 'squeeze') {
       return cur.villain + ' ouvre à ' + fmt(openSize(cur.villain)) + ' BB · ' + cur.caller + ' call · squeeze à ' +
         fmt(cur.spot.size) + ' BB';
@@ -581,8 +639,8 @@
     $('#legend').innerHTML = actionOrder().map((a) => {
       const act = window.ACTIONS[a];
       // "sizes" : sizing propre à une action du spot (ex. 3b linéaire 9bb / polarisé 11bb).
-      const label = ['raise', 'squeeze', 'iso'].includes(a) ? act.label + ' ' + fmt(spot.size)
-        : (spot.sizes && spot.sizes[a]) ? act.label + ' ' + fmt(spot.sizes[a]) + 'bb' : act.label;
+      const label = ['raise', 'squeeze', 'iso'].includes(a) ? act.label + ' ' + fmt(spot.size) + (a === 'iso' ? 'bb' : '')
+        : (spot.sizes && spot.sizes[a]) ? (act.sizedLabel || act.label) + ' ' + fmt(spot.sizes[a]) + 'bb' : act.label;
       // En défense vs 3bet, le total 'fold' ne compte que les mains ouvertes puis foldées :
       // la pastille reprend donc le gris clair (fold3bet), pas le gris foncé du fold générique.
       const swatch = (a === 'fold' && cur.kind === 'vs3bet') ? window.ACTIONS.fold3bet.color : window.ACTIONS[a].color;
