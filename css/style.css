@@ -72,6 +72,21 @@ main {
 }
 .drill-menu button:hover { border-color: var(--muted); }
 
+/* Sous-menu des profils, à droite du mode (survol ou clic pour le tactile). */
+.drill-item { position: relative; }
+.drill-item > .drill-mode { width: 100%; }
+.drill-item > .drill-mode::after { content: '›'; float: right; margin-left: 10px; color: var(--muted); }
+.drill-item.open > .drill-mode { border-color: var(--muted); }
+.drill-sub {
+  display: none; position: absolute; left: calc(100% + 6px); top: -5px; z-index: 11;
+  flex-direction: column; gap: 3px; padding: 5px; border-radius: 8px;
+  background: var(--surface); border: 1px solid var(--border);
+  box-shadow: 0 8px 24px rgba(0,0,0,.55); white-space: nowrap;
+}
+.drill-sub::before { content: ''; position: absolute; right: 100%; top: 0; width: 8px; height: 100%; }
+.drill-item:hover > .drill-sub, .drill-item.open > .drill-sub { display: flex; }
+.drill-sub .drill-profile { border-left: 3px solid var(--pc); }
+
 /* ---------- Profil de la table ---------- */
 
 .profiles {
@@ -200,6 +215,16 @@ main {
   box-shadow: 0 0 0 3px rgba(224,82,63,.25), 0 4px 14px rgba(0,0,0,.5);
 }
 .seat.folded .plate { opacity: .45; }
+
+/* Drill : le siège héros devient cliquable pour verrouiller sa position (cadenas en haut à droite). */
+.seat.hero.lockable { cursor: pointer; }
+.plate .lock {
+  display: none; position: absolute; top: -7px; right: -7px;
+  width: 18px; height: 18px; border-radius: 50%;
+  align-items: center; justify-content: center;
+  background: var(--accent); color: #fff; box-shadow: 0 1px 4px rgba(0,0,0,.5);
+}
+.seat.locked .plate .lock { display: flex; }
 
 .tag {
   position: absolute; top: 100%; margin-top: .25em; white-space: nowrap;

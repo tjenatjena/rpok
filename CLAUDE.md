@@ -17,9 +17,10 @@ S'ouvre directement via `index.html`. Les ranges sont en lecture seule dans l'in
 
 ## Drill
 
-Le bouton Drill ouvre un menu de modes : **ALL** (questions open et 3b mélangées au hasard), **Open**, **3b** ; un nouveau clic arrête le drill.
+Le bouton Drill ouvre un menu de modes : **ALL** (questions open et 3b mélangées au hasard), **Open**, **3b** ; chaque mode ouvre un sous-menu (survol ou clic) « Tous profils » + les profils qui ont au moins une range pour ce mode, pour s'entraîner sur un seul profil (ex. Open → vs. reg ; le libellé du bouton devient « Drill · Open · vs. reg ») ; un nouveau clic arrête le drill.
 Chaque question tire au hasard une situation (open : héros ; 3b : héros + ouvreur), un profil défini pour ce spot et une main ; réponses Fold/Raise (open) ou Fold/Call/3bet (3b, le 3bet/5bet all-in compte comme 3bet). La bonne réponse est tirée au prorata des fréquences de la range.
 Le tirage vise les mains « border » (`DRILL_BORDER_SHARE` = 85 % des questions) : fréquence mixte, ou une des 8 cases voisines de la grille (diagonales comprises) a une autre action majoritaire ; le reste est tiré parmi toutes les mains, toujours pondéré par les combos.
+Pendant le drill, cliquer sur le siège du héros verrouille sa position (`state.drillHero`, cadenas en haut à droite du siège) : les questions suivantes ne portent que sur cette position, dans le mode et le profil choisis ; un nouveau clic la déverrouille, et changer ou arrêter le drill la libère.
 Pendant le drill, le siège du héros n'a ni jetons ni montant, juste un « ? » dans l'encadré jaune ; la grille est révélée après la réponse.
 
 ## Spots

@@ -33,7 +33,8 @@
 
   // villain : { position: 'raise' | 'call' | '3bet' } pour les vilains dont on a donné l'action.
   // drill : null (mode normal) ou mode choisi dans le menu Drill ('all' | 'open' | 'threebet').
-  const state = { hero: 'LJ', profile: 'gto', hovered: null, villain: {}, drill: null };
+  // drillProfile : profil imposé par le sous-menu du drill (null = tous les profils).
+  const state = { hero: 'LJ', profile: 'gto', hovered: null, villain: {}, drill: null, drillProfile: null, drillHero: null };
 
   const posIdx = (pos) => POSITIONS.indexOf(pos);
   const openSize = (pos) => (window.RANGES.open[pos] ? window.RANGES.open[pos].gto.size : 3);
@@ -282,16 +283,22 @@
   const seatEls = {};
   const betEls = {};
 
+  // Petit cadenas affiché en haut à droite du siège héros quand sa position est verrouillée (drill).
+  const LOCK_SVG = '<svg viewBox="0 0 16 16" width="11" height="11"><rect x="3" y="7" width="10" height="8" rx="1.5" fill="currentColor"/>' +
+    '<path d="M5 7V5a3 3 0 0 1 6 0v2" fill="none" stroke="currentColor" stroke-width="1.8"/></svg>';
+
   function buildTable() {
     POSITIONS.forEach((pos) => {
       const seat = document.createElement('button');
       seat.className = 'seat';
       seat.type = 'button';
       seat.innerHTML =
-        '<div class="plate"><span class="pos">' + pos + '</span><span class="stack"></span></div>' +
+        '<div class="plate"><span class="pos">' + pos + '</span><span class="stack"></span>' +
+        '<span class="lock" aria-hidden="true">' + LOCK_SVG + '</span></div>' +
         '<div class="tag"></div>';
       seat.addEventListener('click', (e) => {
         e.stopPropagation();
+        if (state.drill) { if (pos === state.hero) toggleDrillLock(); return; }
         toggleMenu(pos);
       });
       tableEl.appendChild(seat);
@@ -357,6 +364,10 @@
       seat.style.left = x + '%';
       seat.style.top = y + '%';
       seat.classList.toggle('hero', isHero);
+      seat.classList.toggle('locked', isHero && !!state.drill && state.drillHero === pos);
+      seat.classList.toggle('lockable', isHero && !!state.drill);
+      seat.title = isHero && state.drill
+        ? (state.drillHero ? 'Déverrouiller la position' : 'Verrouiller le drill sur cette position') : '';
       seat.classList.toggle('folded', folded);
       seat.querySelector('.stack').textContent = fmt(100 - bet) + ' BB';
 
@@ -682,10 +693,33 @@
     return out;
   }
 
+  // Situations d'un type de question restreintes au profil choisi dans le sous-menu (null = tous
+  // les profils) et à la position du héros verrouillée en cliquant sur son siège (state.drillHero,
+  // null = toutes).
+  function drillSituationsFor(kind, profile, hero = state.drillHero) {
+    return drillSituations(kind).filter((s) => (!profile || s.byProfile[profile]) && (!hero || s.hero === hero));
+  }
+
+  // Clic sur le siège du héros pendant le drill : verrouille / déverrouille sa position.
+  // La question en cours ne change pas ; le verrou s'applique aux suivantes.
+  function toggleDrillLock() {
+    state.drillHero = state.drillHero ? null : state.hero;
+    renderTable();
+  }
+
+  // Types de question d'un mode du menu ('all' = open + 3b).
+  const drillKinds = (mode) => (mode === 'all' ? ['open', 'threebet'] : [mode]);
+
+  // Profils proposés dans le sous-menu d'un mode : ceux qui ont au moins une range interrogeable.
+  function drillProfiles(mode) {
+    return PROFILES.filter((p) => drillKinds(mode).some((k) => drillSituationsFor(k, p.id, null).length));
+  }
+
   function newDrillQuestion() {
-    const kind = state.drill === 'all' ? pick(['open', 'threebet']) : state.drill;
-    const { hero, villain, byProfile } = pick(drillSituations(kind));
-    const profile = pick(PROFILES.map((p) => p.id).filter((id) => byProfile[id]));
+    const kinds = drillKinds(state.drill).filter((k) => drillSituationsFor(k, state.drillProfile).length);
+    const kind = pick(kinds);
+    const { hero, villain, byProfile } = pick(drillSituationsFor(kind, state.drillProfile));
+    const profile = state.drillProfile || pick(PROFILES.map((p) => p.id).filter((id) => byProfile[id]));
     const strat = buildStrategy(byProfile[profile]);
     // Fréquences par réponse proposée ; le 3bet / 5bet all-in compte comme un 3bet.
     const freqsOf = (h) => {
@@ -784,14 +818,20 @@
     hideMenu();
     if (state.drill) { setDrill(null); return; }
     $('#drill-menu').hidden = !$('#drill-menu').hidden;
+    closeDrillSubmenus();
   }
 
-  function setDrill(mode) {
+  function setDrill(mode, profile = null) {
     state.drill = mode;
+    state.drillProfile = mode ? profile : null;
+    state.drillHero = null;
     $('#drill-menu').hidden = true;
+    closeDrillSubmenus();
     const btn = $('#drill-toggle');
     btn.classList.toggle('active', !!mode);
-    btn.textContent = mode ? 'Drill · ' + DRILL_MODES.find((m) => m.id === mode).label : 'Drill';
+    btn.textContent = mode
+      ? 'Drill · ' + DRILL_MODES.find((m) => m.id === mode).label + (profile ? ' · ' + profileOf(profile).label : '')
+      : 'Drill';
     $('#drill-feedback').textContent = '';
     $('#drill-feedback').className = 'drill-feedback';
     if (mode) {
@@ -803,14 +843,41 @@
     render();
   }
 
+  function closeDrillSubmenus() {
+    document.querySelectorAll('.drill-item.open').forEach((el) => el.classList.remove('open'));
+  }
+
+  // Menu Drill : chaque mode ouvre (survol ou clic) un sous-menu « Tous profils » + les profils
+  // qui ont une range pour ce mode ; choisir une entrée lance le drill.
   function buildDrillMenu() {
     const menu = $('#drill-menu');
-    DRILL_MODES.forEach(({ id, label }) => {
+    const button = (text, onClick) => {
       const b = document.createElement('button');
       b.type = 'button';
-      b.textContent = label;
-      b.addEventListener('click', (e) => { e.stopPropagation(); setDrill(id); });
-      menu.appendChild(b);
+      b.textContent = text;
+      b.addEventListener('click', (e) => { e.stopPropagation(); onClick(); });
+      return b;
+    };
+    DRILL_MODES.forEach(({ id, label }) => {
+      const item = document.createElement('div');
+      item.className = 'drill-item';
+      const head = button(label, () => {
+        const wasOpen = item.classList.contains('open');
+        closeDrillSubmenus();
+        item.classList.toggle('open', !wasOpen);
+      });
+      head.className = 'drill-mode';
+      const sub = document.createElement('div');
+      sub.className = 'drill-sub';
+      sub.appendChild(button('Tous profils', () => setDrill(id)));
+      drillProfiles(id).forEach((p) => {
+        const b = button(p.label, () => setDrill(id, p.id));
+        b.style.setProperty('--pc', p.color);
+        b.classList.add('drill-profile');
+        sub.appendChild(b);
+      });
+      item.append(head, sub);
+      menu.appendChild(item);
     });
   }
 
