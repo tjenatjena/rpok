@@ -14,6 +14,10 @@
     <nav id="positions" class="positions" aria-label="Position">
       <button id="drill-toggle" class="drill-toggle" type="button">Drill</button>
       <div id="drill-menu" class="drill-menu" hidden></div>
+      <div id="format-switch" class="format-switch" role="group" aria-label="Format de table">
+        <button type="button" data-format="9max">9max</button>
+        <button type="button" data-format="6max">6max</button>
+      </div>
     </nav>
 
     <section class="table-wrap">
@@ -51,6 +55,7 @@
           </div>
           <div id="drill-feedback" class="drill-feedback"></div>
           <div id="drill-actions" class="drill-actions"></div>
+          <button id="drill-next" class="drill-next" type="button" hidden>Suivant</button>
           <div id="drill-score" class="drill-score"></div>
         </div>
       </aside>
@@ -64,11 +69,7 @@
         <button id="errors-close" class="modal-close" type="button" aria-label="Fermer">×</button>
       </header>
       <div class="errors-filters">
-        <div id="errors-modes" class="errors-modes">
-          <button type="button" data-mode="all">ALL</button>
-          <button type="button" data-mode="open">Open</button>
-          <button type="button" data-mode="threebet">3b</button>
-        </div>
+        <div id="errors-modes" class="errors-modes"></div>
         <select id="errors-profile" aria-label="Profil"></select>
       </div>
       <div id="errors-body" class="errors-body"></div>

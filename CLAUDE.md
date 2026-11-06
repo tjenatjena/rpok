@@ -1,40 +1,51 @@
-# RPok — Ranges de poker 6-max
+# RPok — Ranges de poker 6-max et 9-max
 
-Site statique (HTML/CSS/JS vanilla, sans build) qui affiche des ranges Texas Hold'em 6-max 100 BB.
+Site statique (HTML/CSS/JS vanilla, sans build) qui affiche des ranges Texas Hold'em 6-max et 9-max 100 BB.
 S'ouvre directement via `index.html`. Les ranges sont en lecture seule dans l'interface : on ne les modifie que dans le code (`js/ranges.js`).
 
 - `js/ranges.js` : données (ranges par spot, position et profil de table) + couleurs des actions
-- `js/app.js` : parsing de la notation, table 6-max, grille 13×13, panneau de stats
+- `js/app.js` : parsing de la notation, table 6-max / 9-max, grille 13×13, panneau de stats, switch de format
 - `css/style.css` : style ; l'écran doit tenir sur un portable sans scroll (pas de barre de titre, pas de cartes sur la table)
 
 ## Parcours utilisateur
 
-1. Sélecteur de position du héros en haut (pas d'écran d'accueil : LJ affiché par défaut). C'est le seul moyen de changer de héros.
-2. Table 6-max (héros toujours en bas) avec, à côté, le menu du profil de joueurs à la table.
+0. Pas d'écran d'intro : le site s'ouvre sur la consultation. Un switch **9max / 6max** à droite du sélecteur de positions (aligné sur le bord droit du panneau) change le format, mémorisé dans `localStorage` (clé `rpok.format`, 6max par défaut). Le héros garde sa position si elle existe dans l'autre format (sinon la première : UTG en 9max, LJ en 6max) ; un drill en cours repart sur une question du nouveau format.
+   Formats (`FORMATS` dans `js/app.js`) : 6max = LJ, HJ, CO, BU, SB, BB ; 9max = UTG, UTG1, UTG2 puis les mêmes. Les sièges de chaque format sont placés par `SLOTS_BY_FORMAT`.
+1. Sélecteur de position du héros en haut (positions du format choisi). C'est le seul moyen de changer de héros.
+2. Table 6-max ou 9-max (héros toujours en bas) avec, à côté, le menu du profil de joueurs à la table.
    Cliquer sur le siège d'un vilain ouvre un menu pour donner son action (Aucune / Raise / Call / 3bet / Limp). Le siège du héros n'est pas cliquable.
 3. Grille de range en dessous (façon Suited / GTO Wizard) avec fréquences mixtes.
 4. Panneau à droite de la grille : titre du spot, encart de notes (sizings — sur le 3bet, seule la ligne de la position du héros est affichée (IP / SB / BB liné + pola), et `SIZING_NOTES.threebet.tables` peut remplacer le tableau pour un couple héros / ouvreur, ex. « BB vs SB » ; sur le 3bet, notes de stratégie par position du héros + notes générales + note du profil : vs. reg affiche vs. aggro, vs. fish, vs. nit dans cet ordre), légende et détail de la main survolée. Pas de sous-titre ni de sizing dans la légende pour le 3bet, ni pour la défense vs 3bet (titre abrégé « Def vs 3bet » ; sizing uniquement dans l'encart de notes, sur une ligne : « IP: x2,2 & OOP: x2,7 (max: Xbb) », `max` = `size` du spot).
 
 ## Drill
 
-Le bouton Drill ouvre un menu de modes : **ALL** (questions open et 3b mélangées au hasard), **Open**, **3b** ; chaque mode ouvre un sous-menu (survol ou clic) « Tous profils » + les profils qui ont au moins une range pour ce mode, pour s'entraîner sur un seul profil (ex. Open → vs. reg ; le libellé du bouton devient « Drill · Open · vs. reg ») ; un nouveau clic arrête le drill.
-Exception pour le mode Open : le sous-menu ne propose que vs. aggro, vs. reg et vs. soft, et « vs. soft » regroupe soft, passif, nit et super nit (`DRILL_MENU_PROFILES` / `DRILL_PROFILE_GROUPS` dans `js/app.js`) ; ALL et 3b gardent un choix par profil.
-Chaque question tire au hasard une situation (open : héros ; 3b : héros + ouvreur), un profil défini pour ce spot et une main ; réponses Fold/Raise (open) ou Fold/Call/3bet (3b, le 3bet/5bet all-in compte comme 3bet). La bonne réponse est tirée au prorata des fréquences de la range.
-Le tirage vise les mains « border » (`DRILL_BORDER_SHARE` = 85 % des questions) : fréquence mixte, ou une des 8 cases voisines de la grille (diagonales comprises) a une autre action majoritaire ; le reste est tiré parmi toutes les mains, toujours pondéré par les combos.
+Le bouton Drill ouvre un menu de modes : **ALL** (questions de tous les modes mélangées au hasard), **Open**, **3b** (héros LJ à SB face à un open), **Def BB** (BB face à un open), **Def vs 3b**, **Squeeze**, **Iso** ; chaque mode ouvre un sous-menu (survol ou clic) « Tous profils » + les profils qui ont au moins une range pour ce mode, pour s'entraîner sur un seul profil (ex. Open → vs. reg ; le libellé du bouton devient « Drill · Open · vs. reg ») ; un nouveau clic arrête le drill.
+Le drill ne tire que des positions du format choisi (les opens UTG, UTG1, UTG2 seulement en 9max).
+Chaque question tire au hasard une situation (héros + vilain(s) selon le spot), un profil défini pour ce spot et une main. Les types de question sont dans `DRILL_KINDS` (`js/app.js`) : spot de `RANGES` interrogé, réponses proposées et actions de la range regroupées sous chaque réponse (le reste = fold) :
+   - Open : Fold / Raise
+   - 3b et Def BB (`RANGES.threebet`, BB à part) : Fold / Call / 3bet ; 3bet/5bet all-in et 3b value / linéaire / polarisé comptent comme 3bet
+   - Def vs 3b (`RANGES.vs3bet`) : Fold / Call / 4bet ; le 4bet all-in compte comme 4bet, « call si 3b petit » compte comme fold (3bet de taille standard) ; la main n'est tirée que dans la range d'open du héros (même profil, repli sur `gto`) ; l'open du héros reste caché mais compte dans le montant du 3bet et le pot
+   - Squeeze (`RANGES.squeeze`) : Fold / Call / Squeeze ; « call si baleine en blindes » compte comme fold
+   - Iso (`RANGES.iso`) : Fold / Iso (Check / Iso pour BB) ; « large » compte comme iso
+   Verdict selon la fréquence de la main pour la réponse donnée (`drillVerdict`) : 100 % = juste, panneau vert ; fréquence mixte (ex. combo à 50 %) = juste aussi (compte comme bonne réponse) mais panneau jaune, avec les fréquences de la main dans le message ; 0 % = erreur, panneau rouge. Toutes les réponses jouées à une fréquence > 0 gardent le liseré blanc. La réponse de référence (`correct`, pour le journal des confusions) est la plus fréquente.
+   Les boutons de relance affichent leur sizing (`answerSizing`) : `sizes` de l'action sinon `size` du spot, pour chaque action regroupée ; deux tailles listées (« Iso 4 / 7 »), trois ou plus en fourchette (« 3bet 11–13 »), « AI » ajouté si le 4bet all-in en fait partie. Fold et Call restent sans montant.
+Le tirage vise les mains « border » (`DRILL_BORDER_SHARE` = 85 % des questions) : fréquence mixte, ou une des 8 cases voisines de la grille (diagonales comprises) a une autre action majoritaire ; le reste est tiré parmi toutes les mains possibles, toujours pondéré par les combos.
 Pendant le drill, cliquer sur le siège du héros verrouille sa position (`state.drillHero`, cadenas en haut à droite du siège) : les questions suivantes ne portent que sur cette position, dans le mode et le profil choisis ; un nouveau clic la déverrouille, et changer ou arrêter le drill la libère.
-Pendant le drill, le siège du héros n'a ni jetons ni montant, juste un « ? » dans l'encadré jaune ; la grille est révélée après la réponse.
-Chaque réponse est enregistrée dans `localStorage` (clé `rpok.drillLog.v1`, cumul par type|héros|ouvreur|profil|main : réponses, erreurs, erreurs sur main mixte où la réponse donnée a une fréquence > 0, et confusions « donnée>attendue »). L'entrée **Erreurs** du menu Drill ouvre une fenêtre filtrable par thème (ALL / Open / 3b) et par profil : spots les plus ratés, puis mains les plus ratées (vraies erreurs d'abord) avec l'erreur type ; cliquer une main affiche la range de son spot avec son détail. Bouton Réinitialiser pour vider le journal.
+Pendant le drill, le siège du héros n'a ni jetons ni montant, juste un « ? » dans l'encadré jaune ; la grille est révélée après la réponse. La question suivante ne vient que quand l'utilisateur clique sur **Suivant** (ou Entrée / Espace) ; en attendant, la réponse donnée et les bonnes réponses (liseré blanc) restent nettes, les autres boutons s'estompent, et tout le panneau passe au vert, au jaune (main mixte) ou au rouge (erreur). À la réponse, un jeton part du siège du héros vers la table avec le montant (relance : taille de la variante que la main joue le plus, « AI » pour le 4bet all-in ; call : mise à suivre) et y reste jusqu'à Suivant ; sur un fold, deux cartes sont jetées vers le centre (rien sur le check de la BB).
+Chaque réponse est enregistrée dans `localStorage` (clé `rpok.drillLog.v1`, cumul par type|héros|vilain|profil|main, vilain = « ouvreur+caller » pour le squeeze ; les anciennes entrées `threebet` de BB sont rangées en Def BB à l'affichage : réponses, erreurs (réponse jouée à 0 % uniquement), `mix` = anciennes erreurs sur main mixte enregistrées avant la règle du jaune, et confusions « donnée>attendue »). L'entrée **Erreurs** du menu Drill ouvre une fenêtre filtrable par thème (les modes du drill) et par profil : spots les plus ratés, puis mains les plus ratées (vraies erreurs d'abord) avec l'erreur type ; cliquer une main affiche la range de son spot avec son détail. Bouton Réinitialiser pour vider le journal.
 
 ## Spots
 
 Le spot est déduit des actions des vilains (`currentSpot()` dans `js/app.js`) :
 
-- aucune action → **open** : `RANGES.open[héros][profil]`
+- aucune action → **open** : `RANGES.open[héros][profil]` (repris de `MC26+W25.rm`, fusion de `MC26.rm` et `NL25RP.rm` : un onglet Range Manager par profil, vs. reg → `gto`, vs. passif → `fish` ; un combo présent dans une seule des deux sources est à 50 % ; UTG/UTG1/UTG2 n'existent qu'en 9max ; open à 2,5, SB à 3)
 - un seul vilain avant le héros fait Raise → **3bet** face à un open : `RANGES.threebet[héros][ouvreur][profil]` (actions `'3bet'` et `call` ; certains spots BB découpent le 3bet en `3bvalue` rouge / `3blin` jaune / `3bpol` violet clair, avec le sizing de chaque variante dans le champ `sizes` du spot, affiché dans la légende ; dans le drill elles comptent comme 3bet)
 - un seul vilain après le héros fait 3bet → **défense vs 3bet** (le héros a ouvert) : `RANGES.vs3bet[héros][3betteur][profil]` (actions `'4bet'` et `call` toujours, plus selon le profil `callsmall` = call si le 3bet est petit et/ou `jam` = 4bet all-in). `size` = sizing du 4bet affiché dans l'encart de notes (toujours 27bb). Dans la grille, le fold est affiché en deux teintes de gris pour ce spot : clair pour les mains réellement dans la range d'open du héros (`RANGES.open[héros][profil]`, le profil d'open suit celui du spot vs3bet, repli sur `gto`) mais qui foldent au 3bet, foncé pour celles jamais open-raise ; la légende « Fold » ne compte que les premières (combos d'open − combos défendus), pas les 169 mains de la grille
 - un seul vilain avant le héros fait Limp → **iso sur limp** : `RANGES.iso[héros][limpeur][profil]` (actions `'iso'` et `large` = mains jouées en plus, à la même taille ou à une taille différente selon le spot, quand la table est passive ou en polarisation) ; pour LJ/HJ/CO/BU/SB en tant que héros, le héros a toujours la position postflop sur le limpeur donc la même range est référencée pour chaque limpeur possible (objet JS partagé, voir `ISO_HJ`/`ISO_CO`/etc. dans `js/ranges.js`) ; pour BB, le limpeur change tout (SB laisse BB en position postflop, d'où une range bien plus large que face à un limpeur LJ/HJ/CO/BU)
 - un vilain fait Raise puis un autre Call, tous deux avant le héros → **squeeze** : `RANGES.squeeze[héros][ouvreur][caller][profil]` (actions `squeeze`, `call` et `callwhale` = call si baleine en blindes)
 - toute autre séquence → « spot non couvert » (grille vide)
+
+En 9max, les spots autres que l'open réutilisent les ranges 6-max des positions LJ à BB (même place par rapport au bouton) ; un spot impliquant UTG, UTG1 ou UTG2 comme vilain n'est pas couvert.
 
 ## Profil de la table
 
@@ -46,7 +57,6 @@ Le menu ne montre que les profils qui ont une range pour le spot affiché (vs. r
 | `aggro` | vs. aggro | -1 |
 | `gto` | vs. reg (stratégie de base, par défaut) | 0 |
 | `lin` | vs. reg linéaire | — |
-| `soft` | vs. soft (passif + nit regroupés, open LJ/HJ/CO ; `fish` / `nit` y retombent via `PROFILE_ALIASES`) | — |
 | `fish` | vs. passif | +1 |
 | `nit` | vs. nit | +2 |
 | `supernit` | vs. super nit | +3 |

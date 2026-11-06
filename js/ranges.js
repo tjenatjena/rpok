@@ -17,8 +17,8 @@
  *
  * Chaque position a une entrée par profil de joueurs à la table (voir CLAUDE.md) :
  *   aggro : vs. aggro       gto : vs. reg (stratégie de base)    lin : vs. reg linéaire
- *   fish  : vs. passif
- *   nit   : vs. nit         supernit : vs. super nit
+ *   fish  : vs. passif      nit : vs. nit                         supernit : vs. super nit
+ * Positions : UTG, UTG1, UTG2 (9-max seulement), puis LJ, HJ, CO, BU, SB, BB (6-max et 9-max).
  * Un profil absent n'est pas proposé dans le menu pour ce spot (la range gto est affichée à la place).
  *
  * Sections :
@@ -80,93 +80,243 @@ const SQUEEZE_BU_VS_EARLY = {
 };
 
 window.RANGES = {
+  // Opens repris de MC26+W25.rm (fusion de MC26 et NL25RP, un onglet par profil) : une main
+  // présente dans une seule des deux sources est à 50 %. UTG, UTG1 et UTG2 n'existent qu'en
+  // 9-max ; LJ à SB servent aux deux formats.
   open: {
+    UTG: {
+      aggro: {
+        size: 2.5,
+        actions: {
+          raise: 'TT+, ' +
+                 'ATs+, KQs, ' +
+                 'AKo',
+        },
+      },
+      gto: {
+        size: 2.5,
+        actions: {
+          raise: 'TT+, ' +
+                 'ATs+, KJs+, ' +
+                 'AQo+',
+        },
+      },
+      fish: {
+        size: 2.5,
+        actions: {
+          raise: '99+, ' +
+                 'A8s+, A5s, KTs+, QJs, ' +
+                 'AJo+, KQo',
+        },
+      },
+      nit: {
+        size: 2.5,
+        actions: {
+          raise: '88+, ' +
+                 'A5s+, K8s+, QTs+, JTs, ' +
+                 'AJo+, KQo',
+        },
+      },
+    },
+    UTG1: {
+      aggro: {
+        size: 2.5,
+        actions: {
+          raise: 'TT+, ' +
+                 'ATs+, A5s, KJs+, ' +
+                 'AQo+',
+        },
+      },
+      gto: {
+        size: 2.5,
+        actions: {
+          raise: '99+, ' +
+                 'A5s+, KTs+, QTs+, ' +
+                 'AQo+',
+        },
+      },
+      fish: {
+        size: 2.5,
+        actions: {
+          raise: '88+, ' +
+                 'A4s+, K9s+, QTs+, JTs, ' +
+                 'AJo+, KQo',
+        },
+      },
+      nit: {
+        size: 2.5,
+        actions: {
+          raise: '77+, ' +
+                 'A4s+, K5s+, QTs+, JTs, ' +
+                 'ATo+, KJo+',
+        },
+      },
+    },
+    UTG2: {
+      aggro: {
+        size: 2.5,
+        actions: {
+          raise: '99+, ' +
+                 'A5s+, KTs+, QTs+, ' +
+                 'AQo+',
+        },
+      },
+      gto: {
+        size: 2.5,
+        actions: {
+          raise: '88+, ' +
+                 'A4s+, KTs+, QTs+, JTs, ' +
+                 'AJo+, KQo',
+        },
+      },
+      fish: {
+        size: 2.5,
+        actions: {
+          raise: '77+, ' +
+                 'A3s+, K9s+, QTs+, JTs, ' +
+                 'ATo+, KJo+',
+        },
+      },
+      nit: {
+        size: 2.5,
+        actions: {
+          raise: '66+, ' +
+                 'A4s+, K5s+, QTs+, JTs, ' +
+                 'ATo+, KJo+',
+        },
+      },
+    },
     LJ: {
+      aggro: {
+        size: 2.5,
+        actions: {
+          raise: '99+, ' +
+                 'A4s+, KTs+, ' +
+                 'AQo+, KQo, ' +
+                 'A3s:0.5, QJs:0.5, QTs:0.5, AJo:0.5, JTs:0.5, 88:0.5',
+        },
+      },
       gto: {
         size: 2.5,
         actions: {
           raise: '88+, ' +
                  'A2s+, K8s+, QTs+, JTs, ' +
-                 'ATo+, KJo+',
+                 'ATo+, KQo, ' +
+                 'KJo:0.5, 77:0.5',
         },
       },
-      // vs. soft = vs. passif et vs. nit regroupés (LJ, HJ, CO).
-      soft: {
+      fish: {
         size: 2.5,
         actions: {
-          raise: '33+, ' +
-                 'A2s+, K4s+, Q9s+, JTs, T9s, 98s, 87s, 76s, 65s, 54s, ' +
-                 'A9o+, KTo+, QJo',
+          raise: '55+, ' +
+                 'A2s+, K6s+, Q9s+, JTs, ' +
+                 'ATo+, KTo+, QJo, ' +
+                 'K5s:0.5, K4s:0.5, A9o:0.5, 44:0.5',
         },
       },
+      nit: {
+        size: 2.5,
+        actions: {
+          raise: '44+, ' +
+                 'A2s+, K5s+, Q9s+, JTs, T9s, 98s, 87s, 76s, 65s, ' +
+                 'ATo+, KTo+, QJo, ' +
+                 '54s:0.5, 33:0.5',
+        },
+      },
+    },
+    HJ: {
       aggro: {
         size: 2.5,
         actions: {
           raise: '88+, ' +
                  'A3s+, KTs+, QTs+, JTs, ' +
-                 'AQo+, KQo+',
+                 'AJo+, KQo, ' +
+                 'A2s:0.5, KJo:0.5, ATo:0.5, 77:0.5',
         },
       },
-    },
-    HJ: {
       gto: {
         size: 2.5,
         actions: {
           raise: '77+, ' +
                  'A2s+, K5s+, Q9s+, JTs, ' +
-                 'ATo+, KTo+, QJo',
+                 'ATo+, KTo+, QJo, ' +
+                 'K4s:0.5, J9s:0.5, T9s:0.5, 66:0.5',
         },
       },
-      soft: {
+      fish: {
         size: 2.5,
         actions: {
-          raise: '22+, ' +
-                 'A2s+, K2s+, Q4s+, J8s+, T8s+, 98s, 87s, 76s, 65s, 54s, ' +
-                 'A4o+, K9o+, QTo+, JTo',
+          raise: '44+, ' +
+                 'A2s+, K4s+, Q9s+, J9s+, T9s, 98s, 87s, 76s, 65s, ' +
+                 'A9o+, KTo+, QTo+, ' +
+                 'K3s:0.5, K2s:0.5, Q8s:0.5, Q7s:0.5, Q6s:0.5, Q5s:0.5, J8s:0.5, JTo:0.5, A8o:0.5, A7o:0.5, 33:0.5',
         },
       },
-      aggro: {
+      nit: {
         size: 2.5,
         actions: {
-          raise: '77+, ' +
-                 'A2s+, KTs+, QTs+, JTs+, ' +
-                 'AJo+, KQo+, ',
+          raise: '33+, ' +
+                 'A2s+, K3s+, Q8s+, J9s+, T9s, 98s, 87s, 76s, 65s, 54s, ' +
+                 'A8o+, KTo+, QTo+, ' +
+                 'K2s:0.5, Q7s:0.5, Q6s:0.5, Q5s:0.5, J8s:0.5, JTo:0.5, T8s:0.5, A7o:0.5, A6o:0.5, A5o:0.5, A4o:0.5, 22:0.5',
         },
       },
     },
     CO: {
+      aggro: {
+        size: 2.5,
+        actions: {
+          raise: '66+, ' +
+                 'A2s+, KTs+, QTs+, JTs, ' +
+                 'ATo+, KTo+, QJo, ' +
+                 'K9s:0.5',
+        },
+      },
       gto: {
         size: 2.5,
         actions: {
           raise: '55+, ' +
                  'A2s+, K3s+, Q8s+, J8s+, T9s, ' +
-                 'A8o+, KTo+, QTo+, JTo',
+                 'A8o+, KTo+, QTo+, JTo, ' +
+                 'T8s:0.5, 98s:0.5',
         },
       },
-      soft: {
+      fish: {
         size: 2.5,
         actions: {
           raise: '22+, ' +
-                 'A2s+, K2s+, Q4s+, J5s+, T7s+, 97s+, 86s+, 76s, 65s, 54s, ' +
-                 'A3o+, K9o+, QTo+, JTo',
+                 'A2s+, K2s+, Q8s+, J8s+, T8s+, 98s, 87s, 76s, 65s, 54s, ' +
+                 'A7o+, K9o+, QTo+, JTo, ' +
+                 'Q7s:0.5, Q6s:0.5, Q5s:0.5, Q4s:0.5, J7s:0.5, J6s:0.5, J5s:0.5, T7s:0.5, 97s:0.5, 86s:0.5, A6o:0.5, A5o:0.5, A4o:0.5, A3o:0.5',
         },
       },
-      aggro: {
+      nit: {
         size: 2.5,
         actions: {
-          raise: '66+, ' +
-                 'A2s+, KTs+, QTs+, JTs+, ' +
-                 'ATo+, KTo+, QJo',
+          raise: '22+, ' +
+                 'A2s+, K2s+, Q6s+, J7s+, T7s+, 97s+, 87s, 76s, 65s, 54s, ' +
+                 'A5o+, K9o+, QTo+, JTo, ' +
+                 'Q5s:0.5, Q4s:0.5, J6s:0.5, J5s:0.5, 86s:0.5, A4o:0.5, A3o:0.5',
         },
       },
     },
     BU: {
+      aggro: {
+        size: 2.5,
+        actions: {
+          raise: '44+, ' +
+                 'A2s+, K8s+, Q9s+, J9s+, T9s, 98s, ' +
+                 'A9o+, KTo+, QTo+, JTo, ' +
+                 'K7s:0.5, K6s:0.5, K5s:0.5, K4s:0.5, Q8s:0.5, J8s:0.5, T8s:0.5, A8o:0.5, 87s:0.5, A7o:0.5, 76s:0.5, 65s:0.5, 33:0.5, 22:0.25',
+        },
+      },
       gto: {
         size: 2.5,
         actions: {
           raise: '33+, ' +
                  'A2s+, K2s+, Q4s+, J5s+, T6s+, 97s+, 87s, 76s, 65s, ' +
-                 'A3o+, K9o+, Q9o+, J9o+, T9o',
+                 'A3o+, K9o+, Q9o+, J9o+, T9o, ' +
+                 'Q3s:0.5, Q2s:0.5, 96s:0.5, K8o:0.5, 86s:0.5, 75s:0.5, 64s:0.5, 54s:0.5, 22:0.5',
         },
       },
       fish: {
@@ -174,7 +324,8 @@ window.RANGES = {
         actions: {
           raise: '22+, ' +
                  'A2s+, K2s+, Q2s+, J2s+, T3s+, 95s+, 85s+, 74s+, 64s+, 53s+, 43s, ' +
-                 'A2o+, K4o+, Q7o+, J7o+, T7o+, 97o+, 87o, 76o, ',
+                 'A2o+, K4o+, Q7o+, J7o+, T7o+, 97o+, 87o, ' +
+                 'T2s:0.5, Q6o:0.5, 76o:0.5, Q5o:0.5, K3o:0.5',
         },
       },
       nit: {
@@ -182,65 +333,64 @@ window.RANGES = {
         actions: {
           raise: '22+, ' +
                  'A2s+, K2s+, Q2s+, J2s+, T3s+, 95s+, 85s+, 74s+, 64s+, 53s+, 43s, ' +
-                 'A2o+, K2o+, Q6o+, J7o+, T7o+, 97o+, 87o, 76o, 65o, ',
+                 'A2o+, K3o+, Q6o+, J7o+, T7o+, 97o+, 87o, ' +
+                 'T2s:0.5, 76o:0.5, Q5o:0.5, 65o:0.5, K2o:0.5',
         },
       },
       supernit: {
         size: 2.5,
         actions: {
           raise: '22+, ' +
-                 'A2s+, K2s+, Q2s+, J2s+, T2s+, 92s+, 82s+, 72s+, 62s+, 52s+, 42s+, 32s, ' +
-                 'A2o+, K2o+, Q2o+, J6o+, T6o+, 96o+, 86o+, 76o, 65o, ',
-        },
-      },
-      aggro: {
-        size: 2.5,
-        actions: {
-          raise: '22+, ' +
-                 'A2s+, K8s+, Q9s+, J9s+, T9s, 98s, 87s, 76s, 65s, ' +
-                 'A9o+, KTo+, QTo+, JTo',
+                 'A2s+, K2s+, Q2s+, J2s+, T2s+, 92s+, 82s+, 73s+, 62s+, 52s+, 42s+, 32s, ' +
+                 'A2o+, K2o+, Q2o+, J6o+, T6o+, 96o+, 86o+, 76o, 65o, ' +
+                 '72s:0.5, J5o:0.5, T5o:0.5, 85o:0.5, 75o:0.5, J4o:0.5, T4o:0.5, 64o:0.5, 54o:0.5, J3o:0.5',
         },
       },
     },
     SB: {
+      aggro: {
+        size: 3,
+        actions: {
+          raise: '33+, ' +
+                 'A2s+, K8s+, Q9s+, J9s+, T9s, 98s, 87s, 76s, 65s, ' +
+                 'A9o+, KTo+, QTo+, JTo, ' +
+                 'K7s:0.5, K6s:0.5, K5s:0.5, K4s:0.5, K3s:0.5, K2s:0.5, Q8s:0.5, Q7s:0.5, Q6s:0.5, Q5s:0.5, Q4s:0.5, J8s:0.5, J7s:0.5, T8s:0.5, T7s:0.5, K9o:0.5, 97s:0.5, A8o:0.5, 86s:0.5, A7o:0.5, A6o:0.5, A5o:0.5, 22:0.5',
+        },
+      },
       gto: {
-        size: 2.5,
+        size: 3,
         actions: {
           raise: '22+, ' +
-                 'A2s+, K2s+, Q2s+, J4s+, T6s+, 96s+, 85s+, 75s+, 64s+, 54s, ' +
-                 'A3o+, K8o+, Q9o+, J9o+, T9o',
+                 'A2s+, K2s+, Q2s+, J5s+, T6s+, 96s+, 86s+, 75s+, 64s+, 54s, ' +
+                 'A3o+, K8o+, Q9o+, J9o+, T9o, ' +
+                 'J4s:0.5, 85s:0.5',
         },
       },
       fish: {
-        size: 2.5,
+        size: 3,
         actions: {
           raise: '22+, ' +
                  'A2s+, K2s+, Q2s+, J2s+, T3s+, 94s+, 84s+, 74s+, 64s+, 54s, ' +
-                 'A2o+, K4o+, Q7o+, J7o+, T7o+, 97o+, 87o, 76o, ',
+                 'A2o+, K4o+, Q7o+, J7o+, T7o+, 97o+, 87o, 76o, ' +
+                 'T2s:0.5, Q6o:0.5, 86o:0.5, 63s:0.5, 65o:0.5, 53s:0.5, 43s:0.5',
         },
       },
       nit: {
-        size: 2.5,
+        size: 3,
         actions: {
           raise: '22+, ' +
                  'A2s+, K2s+, Q2s+, J2s+, T2s+, 94s+, 84s+, 74s+, 64s+, 53s+, 43s, ' +
-                 'A2o+, K2o+, Q6o+, J7o+, T7o+, 97o+, 86o+, 75o+, 65o, 54o, ',
+                 'A2o+, K4o+, Q6o+, J7o+, T7o+, 97o+, 86o+, 76o, 65o, ' +
+                 '63s:0.5, 75o:0.5, 54o:0.5, K3o:0.5, K2o:0.5',
         },
       },
       supernit: {
-        size: 2.5,
+        size: 3,
         actions: {
           raise: '22+, ' +
-                 'A2s+, K2s+, Q2s+, J2s+, T2s+, 92s+, 82s+, 72s+, 62s+, 52s+, 42s+, 32s, ' +
-                 'A2o+, K2o+, Q2o+, J2o+, T6o+, 96o+, 86o+, 75o+, 65o, 54o,  ',
-        },
-      },
-      aggro: {
-        size: 2.5,
-        actions: {
-          raise: '22+, ' +
-                 'A2s+, K8s+, Q9s+, J9s+, T9s, 98s, 87s, 76s, 65s, ' +
-                 'A9o+, KTo+, QTo+, JTo',
+                 'A2s+, K2s+, Q2s+, J2s+, T2s+, 92s+, 82s+, 73s+, 62s+, 52s+, 42s+, 32s, ' +
+                 'A2o+, K2o+, Q3o+, J4o+, T6o+, 96o+, 86o+, 75o+, 65o, 54o, ' +
+                 '72s:0.5, 85o:0.5, 64o:0.5, J3o:0.5, Q2o:0.5, J2o:0.5',
         },
       },
     },

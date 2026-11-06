@@ -59,6 +59,23 @@ main {
 #drill-toggle:hover { border-color: var(--muted); }
 #drill-toggle.active { background: var(--accent); border-color: var(--accent); color: #fff; }
 
+/* 9max : 9 boutons de position plus étroits pour laisser la place au bouton Drill et au switch de format. */
+.positions.nine button[data-pos] { min-width: 48px; padding: 6px 8px; }
+
+/* Switch 9max / 6max, aligné à droite sur le panneau par js/app.js. */
+.format-switch {
+  position: absolute; left: 0; top: 50%; transform: translateY(-50%);
+  display: flex; padding: 2px; border-radius: 8px;
+  border: 1px solid var(--border); background: var(--surface);
+}
+.format-switch button {
+  font: inherit; font-weight: 600; font-size: 13px; color: var(--muted);
+  padding: 4px 10px; border: 0; border-radius: 6px; background: transparent; cursor: pointer;
+  transition: background .15s, color .15s;
+}
+.format-switch button:hover { color: var(--text); }
+.format-switch button.active { background: var(--accent); color: #fff; }
+
 .drill-menu {
   position: absolute; left: 0; top: calc(100% + 4px); z-index: 10;
   display: flex; flex-direction: column; gap: 3px;
@@ -116,7 +133,7 @@ main {
 }
 .modal-close:hover { color: var(--text); }
 .errors-filters { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; }
-.errors-modes { display: flex; gap: 4px; }
+.errors-modes { display: flex; flex-wrap: wrap; gap: 4px; }
 .errors-modes button, .errors-filters select, .modal-foot button {
   font: inherit; font-weight: 600; font-size: 13px; color: var(--text);
   padding: 4px 12px; border-radius: 6px;
@@ -278,6 +295,10 @@ main {
 .plate .pos { font-weight: 700; font-size: 1.05em; }
 .plate .stack { color: var(--muted); font-size: .85em; }
 
+/* 9max : sièges plus compacts pour que les 9 tiennent autour de la table. */
+.table.nine .plate { min-width: 5em; padding: .2em .45em; }
+.table.nine .seat { font-size: .9em; }
+
 .seat:not(.hero):hover .plate { border-color: #6b7888; }
 .seat.hero .plate {
   border-color: var(--accent);
@@ -321,6 +342,23 @@ main {
   background: #3d7bd9; border: .22em dashed #e9eef7;
 }
 .bet .amt { background: rgba(0,0,0,.45); padding: .1em .45em; border-radius: .4em; }
+
+/* Drill : jeton du héros qui glisse vers la table (un peu plus lent que les mises normales). */
+.bet.fx-bet { transition: left .45s cubic-bezier(.2,.7,.3,1), top .45s cubic-bezier(.2,.7,.3,1), opacity .15s; z-index: 3; }
+.bet.fx-bet .amt { font-weight: 700; }
+
+/* Drill : cartes du héros jetées vers le centre sur un fold. */
+.fx-card {
+  position: absolute; z-index: 3; width: 1.8em; height: 2.5em;
+  transform: translate(-50%, -50%) rotate(var(--rot, 0deg));
+  border-radius: .25em; border: .12em solid #f4f1e8;
+  background: repeating-linear-gradient(45deg, #9b1c1c 0 .2em, #b83232 .2em .4em);
+  box-shadow: 0 2px 6px rgba(0,0,0,.5);
+}
+.fx-card.go {
+  transition: left .6s ease-in, top .6s ease-in, transform .6s ease-in, opacity .6s ease-in;
+  opacity: 0;
+}
 
 /* Menu d'action d'un vilain */
 
@@ -447,17 +485,51 @@ main {
   transition: filter .15s;
 }
 .drill-btn:hover:not(:disabled) { filter: brightness(1.15); }
+.drill-btn .sz { white-space: nowrap; }
 .drill-btn:disabled { cursor: default; opacity: .7; }
 .drill-btn.fold { background: #2f3a48; }
 .drill-btn.raise, .drill-btn.threebet { background: #e3b31b; color: #1d232b; }
 .drill-btn.call { background: #3fa96b; }
+.drill-btn.fourbet { background: #e0523f; }
+.drill-btn.squeeze { background: #d93b3b; }
+.drill-btn.iso { background: #9b1c1c; }
+/* Après la réponse : la réponse donnée et la bonne réponse restent nettes, les autres s'estompent. */
+.drill-btn:disabled:not(.given):not(.expected) { opacity: .35; }
+.drill-btn.expected { border-color: #fff; }
+.drill-next[hidden] { display: none; }
+.drill-next {
+  width: 100%; margin-top: 8px; font: inherit; font-weight: 700; font-size: 15px;
+  padding: 10px; border-radius: 10px; border: 1px solid var(--border);
+  background: var(--surface-2); color: var(--text); cursor: pointer; letter-spacing: .5px;
+}
+.drill-next:hover, .drill-next:focus-visible { border-color: var(--muted); }
+.drill-next::after { content: ' →'; }
 .drill-score { color: var(--muted); font-size: 13px; }
+
+/* Drill : tout l'encadré passe au vert (bonne réponse) ou au rouge (erreur) jusqu'à Suivant. */
+.panel { transition: background-color .25s, border-color .25s, box-shadow .25s; }
+.panel.drill-ok {
+  border-color: #3fa96b; background-color: #1d3a2b;
+  box-shadow: 0 0 0 1px #3fa96b, 0 0 18px rgba(63,169,107,.35);
+}
+.panel.drill-mix {
+  border-color: #e3b31b; background-color: #3d3415;
+  box-shadow: 0 0 0 1px #e3b31b, 0 0 18px rgba(227,179,27,.35);
+}
+.panel.drill-ko {
+  border-color: #e0523f; background-color: #42201d;
+  box-shadow: 0 0 0 1px #e0523f, 0 0 18px rgba(224,82,63,.35);
+}
+.panel.drill-ok .drill-feedback, .panel.drill-mix .drill-feedback, .panel.drill-ko .drill-feedback { color: #fff; }
+.panel.drill-ok .drill-score, .panel.drill-mix .drill-score, .panel.drill-ko .drill-score { color: rgba(255,255,255,.75); }
 
 /* ---------- Responsive ---------- */
 
 @media (max-width: 860px), (max-height: 480px) {
   main { height: auto; }
-  #drill-toggle { position: static; width: 100%; order: -1; margin-bottom: 4px; }
+  #drill-toggle { position: static; transform: none; width: 100%; order: -1; margin-bottom: 4px; }
+  .format-switch { position: static; transform: none; width: 100%; order: -2; }
+  .format-switch button { flex: 1; }
   .table { height: auto; width: 100%; max-width: 560px; font-size: clamp(8px, 2vw, 12px); }
   .range { flex-direction: column; align-items: stretch; }
   .grid { height: auto; width: 100%; max-width: none; }

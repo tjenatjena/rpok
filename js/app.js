@@ -2,12 +2,20 @@
   'use strict';
 
   const RANKS = 'AKQJT98765432'.split('');
-  const POSITIONS = ['LJ', 'HJ', 'CO', 'BU', 'SB', 'BB'];
+  // Formats de table choisis par le switch 9max / 6max : positions dans l'ordre de parole préflop.
+  const FORMATS = {
+    '6max': ['LJ', 'HJ', 'CO', 'BU', 'SB', 'BB'],
+    '9max': ['UTG', 'UTG1', 'UTG2', 'LJ', 'HJ', 'CO', 'BU', 'SB', 'BB'],
+  };
+  let POSITIONS = FORMATS['6max'];
   const TOTAL_COMBOS = 1326;
 
   // Emplacements des sièges sur la table (en % du conteneur), dans le sens horaire
   // en partant du héros en bas.
-  const SLOTS = [[50, 80], [8, 66], [8, 28], [50, 12], [92, 28], [92, 66]];
+  const SLOTS_BY_FORMAT = {
+    '6max': [[50, 80], [8, 66], [8, 28], [50, 12], [92, 28], [92, 66]],
+    '9max': [[50, 82], [20, 74], [6, 50], [12, 24], [35, 10], [65, 10], [88, 24], [94, 50], [80, 74]],
+  };
   const CENTER = [50, 48];
 
   // Profils de joueurs à la table (voir CLAUDE.md), dans l'ordre du menu.
@@ -15,7 +23,6 @@
     { id: 'aggro', label: 'vs. aggro', color: '#22c7e0' },
     { id: 'gto', label: 'vs. reg', color: '#d92b2b' },
     { id: 'lin', label: 'vs. reg linéaire', color: '#f08a24' },
-    { id: 'soft', label: 'vs. soft', color: '#7cc43a' },
     { id: 'fish', label: 'vs. passif', color: '#ec6fb4' },
     { id: 'nit', label: 'vs. nit', color: '#3d5fd6' },
     { id: 'supernit', label: 'vs. super nit', color: '#2333a3' },
@@ -27,14 +34,9 @@
   ];
   const profileOf = (id) => PROFILES.find((p) => p.id === id);
 
-  // Profils voisins : vs. soft (open LJ/HJ/CO) regroupe vs. passif et vs. nit, donc un choix
-  // passif / nit retombe sur soft là où seul soft est défini.
-  const PROFILE_ALIASES = { fish: 'soft', nit: 'soft' };
-
-  // Profil réellement utilisé pour un spot : celui demandé, sinon son alias, sinon gto.
+  // Profil réellement utilisé pour un spot : celui demandé, sinon gto.
   function resolveProfile(byProfile, id) {
     if (byProfile[id]) return id;
-    if (byProfile[PROFILE_ALIASES[id]]) return PROFILE_ALIASES[id];
     return byProfile.gto ? 'gto' : null;
   }
 
@@ -44,9 +46,10 @@
   const EMPTY_SPOT = { size: 0, actions: {} };
 
   // villain : { position: 'raise' | 'call' | '3bet' } pour les vilains dont on a donné l'action.
-  // drill : null (mode normal) ou mode choisi dans le menu Drill ('all' | 'open' | 'threebet').
+  // drill : null (mode normal) ou mode choisi dans le menu Drill ('all' ou une clé de DRILL_KINDS).
   // drillProfile : profil imposé par le sous-menu du drill (null = tous les profils).
-  const state = { hero: 'LJ', profile: 'gto', hovered: null, villain: {}, drill: null, drillProfile: null, drillHero: null };
+  // format : '6max' | '9max' (switch en haut à droite), voir FORMATS.
+  const state = { format: '6max', hero: 'LJ', profile: 'gto', hovered: null, villain: {}, drill: null, drillProfile: null, drillHero: null };
 
   const posIdx = (pos) => POSITIONS.indexOf(pos);
   const openSize = (pos) => (window.RANGES.open[pos] ? window.RANGES.open[pos].gto.size : 3);
@@ -322,8 +325,8 @@
   // les mains réellement ouvertes puis foldées au 3bet des mains jamais open-raise. Repli sur gto
   // si ce profil n'a pas de range d'open définie. N'affecte pas parseErrors (qui doit rester celui
   // du spot affiché).
-  function heroOpenStrategy(profile) {
-    const byProfile = window.RANGES.open[state.hero] || {};
+  function heroOpenStrategy(profile, hero = state.hero) {
+    const byProfile = window.RANGES.open[hero] || {};
     const openSpot = byProfile[resolveProfile(byProfile, profile)];
     if (!openSpot) return null;
     const savedErrors = parseErrors;
@@ -358,7 +361,15 @@
   const LOCK_SVG = '<svg viewBox="0 0 16 16" width="11" height="11"><rect x="3" y="7" width="10" height="8" rx="1.5" fill="currentColor"/>' +
     '<path d="M5 7V5a3 3 0 0 1 6 0v2" fill="none" stroke="currentColor" stroke-width="1.8"/></svg>';
 
+  // (Re)construit les sièges du format courant (appelé à chaque changement de format).
   function buildTable() {
+    Object.keys(seatEls).forEach((pos) => {
+      seatEls[pos].remove();
+      betEls[pos].remove();
+      delete seatEls[pos];
+      delete betEls[pos];
+    });
+    tableEl.classList.toggle('nine', POSITIONS.length > 6);
     POSITIONS.forEach((pos) => {
       const seat = document.createElement('button');
       seat.className = 'seat';
@@ -385,7 +396,10 @@
 
   const lerp = (a, b, t) => a + (b - a) * t;
   const fmt = (n) => (Math.round(n * 10) / 10).toString().replace('.', ',');
-  const seatXY = (pos) => SLOTS[(posIdx(pos) - posIdx(state.hero) + 6) % 6];
+  const seatXY = (pos) => {
+    const n = POSITIONS.length;
+    return SLOTS_BY_FORMAT[state.format][(posIdx(pos) - posIdx(state.hero) + n) % n];
+  };
 
   // Assombrit une couleur hex (pct de 0 à 1) pour le dégradé du tapis.
   const shade = (hex, pct) => {
@@ -417,6 +431,10 @@
       const hiddenHero = isHero && state.drill;
 
       let act = null, amt = 0;
+      // Drill en défense vs 3bet : l'open du héros reste caché mais compte pour le montant du
+      // 3bet et pour le pot.
+      const hiddenOpen = hiddenHero && heroAct && Object.values(state.villain).includes('3bet') ? heroAct[1] : 0;
+      if (hiddenOpen) level = Math.max(level, hiddenOpen);
       if (isHero) {
         if (heroAct && !hiddenHero) [act, amt] = heroAct;
       } else if (state.villain[pos]) {
@@ -430,7 +448,7 @@
       if (hiddenHero) bet = 0;
       else if (!act && pos === 'SB') bet = 0.5;
       else if (!act && pos === 'BB') bet = 1;
-      pot += bet;
+      pot += bet + hiddenOpen;
 
       seat.style.left = x + '%';
       seat.style.top = y + '%';
@@ -440,7 +458,7 @@
       seat.title = isHero && state.drill
         ? (state.drillHero ? 'Déverrouiller la position' : 'Verrouiller le drill sur cette position') : '';
       seat.classList.toggle('folded', folded);
-      seat.querySelector('.stack').textContent = fmt(100 - bet) + ' BB';
+      seat.querySelector('.stack').textContent = fmt(100 - bet - hiddenOpen) + ' BB';
 
       const tag = seat.querySelector('.tag');
       tag.className = 'tag';
@@ -475,7 +493,11 @@
     btn.style.top = lerp(by, CENTER[1], 0.3) + (by > 50 ? -3 : 3) + '%';
 
     $('#pot').innerHTML = 'Pot <strong>' + fmt(pot) + ' BB</strong>';
+    tableLevel = level;
   }
+
+  // Mise la plus haute face au héros (montant d'un call, animation du drill).
+  let tableLevel = 1;
 
   /* ---------- Grille de range ---------- */
 
@@ -693,27 +715,83 @@
     el.innerHTML = '<div class="hhand">' + h + ' <span class="muted">· ' + combos(h) + ' combos</span></div>' + rows + markRow;
   }
 
-  /* ---------- Drill (entraînement à l'open et au 3bet) ---------- */
+  /* ---------- Drill (entraînement sur tous les spots) ---------- */
 
   // Modes du menu Drill ; 'all' mélange au hasard les questions des autres modes.
   const DRILL_MODES = [
     { id: 'all', label: 'ALL' },
     { id: 'open', label: 'Open' },
     { id: 'threebet', label: '3b' },
+    { id: 'bbdef', label: 'Def BB' },
+    { id: 'vs3bet', label: 'Def vs 3b' },
+    { id: 'squeeze', label: 'Squeeze' },
+    { id: 'iso', label: 'Iso' },
   ];
-  // Réponses proposées selon le type de question (dans l'ordre des boutons).
-  const DRILL_ANSWERS = { open: ['fold', 'raise'], threebet: ['fold', 'call', '3bet'] };
+  // Types de question : spot de RANGES interrogé, réponses proposées (dans l'ordre des boutons)
+  // et actions de la range regroupées sous chaque réponse (le reste = fold). « hero » restreint
+  // les positions du héros : le 3b exclut BB, dont la défense face à un open a son propre mode.
+  //   3bet / 5bet all-in et variantes BB (value / linéaire / polarisé) -> 3bet
+  //   4bet all-in -> 4bet ; « call si 3b petit » -> fold (3bet de taille standard)
+  //   « call si baleine en blindes » -> fold (pas de baleine par défaut)
+  //   iso « large » (mains jouées en plus / iso à une autre taille) -> iso
+  const THREEBET_ACTIONS = ['5bet', '3bet', '3bvalue', '3blin', '3bpol'];
+  const DRILL_KINDS = {
+    open: { spot: 'open', answers: ['fold', 'raise'], groups: { raise: ['raise'] } },
+    threebet: { spot: 'threebet', answers: ['fold', 'call', '3bet'], groups: { '3bet': THREEBET_ACTIONS, call: ['call'] }, hero: (h) => h !== 'BB' },
+    bbdef: { spot: 'threebet', answers: ['fold', 'call', '3bet'], groups: { '3bet': THREEBET_ACTIONS, call: ['call'] }, hero: (h) => h === 'BB' },
+    vs3bet: { spot: 'vs3bet', answers: ['fold', 'call', '4bet'], groups: { '4bet': ['4bet', 'jam'], call: ['call'] } },
+    squeeze: { spot: 'squeeze', answers: ['fold', 'call', 'squeeze'], groups: { squeeze: ['squeeze'], call: ['call'] } },
+    iso: { spot: 'iso', answers: ['fold', 'iso'], groups: { iso: ['iso', 'large'] } },
+  };
   const pick = (arr) => arr[Math.floor(Math.random() * arr.length)];
 
-  // Situations interrogeables : { hero, villain, byProfile } pour chaque range définie
-  // (open : BB ne peut pas ouvrir ; 3bet : chaque couple héros / ouvreur de RANGES.threebet).
-  function drillSituations(kind) {
-    if (kind === 'open') {
-      return POSITIONS.filter((p) => window.RANGES.open[p])
-        .map((hero) => ({ hero, villain: null, byProfile: window.RANGES.open[hero] }));
+  // Libellé d'une réponse : BB face à un limp ne folde pas, il checke.
+  const answerLabel = (a, q) => (a === 'fold' && q.kind === 'iso' && q.hero === 'BB' ? 'Check' : window.ACTIONS[a].label);
+
+  // Libellé avec le sizing de la relance (ex. « Raise 2,5 ») : taille propre à l'action (champ
+  // « sizes » du spot) sinon « size », pour chaque action de la range regroupée sous la réponse ;
+  // deux tailles sont listées (ex. iso BB vs SB « 4 / 7 »), trois ou plus en fourchette (« 11–13 »),
+  // le 4bet all-in ajoute « AI ».
+  function answerSizing(a, q) {
+    const acts = (DRILL_KINDS[q.kind].groups[a] || []).filter((x) => q.spot.actions[x]);
+    if (a === 'call' || !acts.length) return '';
+    let sizes = [...new Set(acts.filter((x) => x !== 'jam')
+      .map((x) => (q.spot.sizes && q.spot.sizes[x]) || q.spot.size))].sort((x, y) => x - y);
+    sizes = sizes.length > 2 ? [fmt(sizes[0]) + '–' + fmt(sizes[sizes.length - 1])] : sizes.map(fmt);
+    if (acts.includes('jam')) sizes.push('AI');
+    return sizes.join(' / ');
+  }
+
+  const answerText = (a, q) => (answerLabel(a, q) + ' ' + answerSizing(a, q)).trim();
+
+  // Actions des vilains d'une question. villain = position du vilain, ou « ouvreur+caller » pour
+  // le squeeze.
+  function drillVillains(kind, villain) {
+    if (!villain) return {};
+    if (kind === 'squeeze') {
+      const [opener, caller] = villain.split('+');
+      return { [opener]: 'raise', [caller]: 'call' };
     }
-    return Object.entries(window.RANGES.threebet).flatMap(([hero, byOpener]) =>
-      Object.entries(byOpener).map(([villain, byProfile]) => ({ hero, villain, byProfile })));
+    return { [villain]: { vs3bet: '3bet', iso: 'limp' }[kind] || 'raise' };
+  }
+
+  // Situations interrogeables : { hero, villain, byProfile } pour chaque range définie du type de
+  // question, limitées aux positions du format (BB ne peut pas ouvrir, UTG à UTG2 seulement en 9max).
+  function drillSituations(kind) {
+    const cfg = DRILL_KINDS[kind];
+    const data = window.RANGES[cfg.spot];
+    let out;
+    if (cfg.spot === 'open') {
+      out = Object.keys(data).map((hero) => ({ hero, villain: null, byProfile: data[hero] }));
+    } else if (cfg.spot === 'squeeze') {
+      out = Object.entries(data).flatMap(([hero, byOpener]) => Object.entries(byOpener).flatMap(([opener, byCaller]) =>
+        Object.entries(byCaller).map(([caller, byProfile]) => ({ hero, villain: opener + '+' + caller, byProfile }))));
+    } else {
+      out = Object.entries(data).flatMap(([hero, byVillain]) =>
+        Object.entries(byVillain).map(([villain, byProfile]) => ({ hero, villain, byProfile })));
+    }
+    return out.filter((s) => POSITIONS.includes(s.hero) && (!cfg.hero || cfg.hero(s.hero)) &&
+      (!s.villain || s.villain.split('+').every((v) => POSITIONS.includes(v))));
   }
 
   let drillStats = { correct: 0, total: 0 };
@@ -740,7 +818,9 @@
   // Mains « border » d'une range (freqs : main -> { action: fréquence } sans le fold) : mains à
   // fréquence mixte, ou dont une case voisine dans la grille (les 8 autour, diagonales comprises) n'a pas
   // la même action majoritaire. Ce sont les décisions où l'on se trompe, loin des mains évidentes.
-  function borderHands(freqs) {
+  // pool (optionnel) : seules mains possibles dans le spot (défense vs 3bet : mains ouvertes) ; les
+  // cases hors pool ne sont ni retenues ni comparées.
+  function borderHands(freqs, pool = null) {
     const withFold = (h) => {
       const f = freqs(h);
       return Object.assign({ fold: Math.max(0, 1 - Object.values(f).reduce((a, b) => a + b, 0)) }, f);
@@ -754,9 +834,11 @@
     for (let r = 0; r < 13; r++) {
       for (let c = 0; c < 13; c++) {
         const h = handAt(r, c);
+        if (pool && !pool.has(h)) continue;
         const m = main(h);
         const edge = [-1, 0, 1].flatMap((di) => [-1, 0, 1].map((dj) => [r + di, c + dj]))
-          .some(([i, j]) => i >= 0 && i < 13 && j >= 0 && j < 13 && main(handAt(i, j)) !== m);
+          .some(([i, j]) => i >= 0 && i < 13 && j >= 0 && j < 13 &&
+            (!pool || pool.has(handAt(i, j))) && main(handAt(i, j)) !== m);
         if (edge || mixed(h)) out.push(h);
       }
     }
@@ -772,17 +854,8 @@
       (!profileIds || profileIds.some((id) => s.byProfile[id])) && (!hero || s.hero === hero));
   }
 
-  // Drill Open : le sous-menu ne propose que vs. aggro, vs. reg et vs. soft, et « vs. soft »
-  // regroupe tous les profils exploitants (soft, passif, nit, super nit). Les autres modes gardent
-  // un choix par profil.
-  const DRILL_MENU_PROFILES = { open: ['aggro', 'gto', 'soft'] };
-  const DRILL_PROFILE_GROUPS = { open: { soft: ['soft', 'fish', 'nit', 'supernit'] } };
-
-  // Profils couverts par le choix du sous-menu pour un mode (null = tous les profils).
-  function drillProfileIds(mode, profile) {
-    if (!profile) return null;
-    return (DRILL_PROFILE_GROUPS[mode] || {})[profile] || [profile];
-  }
+  // Profils couverts par le choix du sous-menu (null = tous les profils).
+  const drillProfileIds = (profile) => (profile ? [profile] : null);
 
   // Clic sur le siège du héros pendant le drill : verrouille / déverrouille sa position.
   // La question en cours ne change pas ; le verrou s'applique aux suivantes.
@@ -791,41 +864,46 @@
     renderTable();
   }
 
-  // Types de question d'un mode du menu ('all' = open + 3b).
-  const drillKinds = (mode) => (mode === 'all' ? ['open', 'threebet'] : [mode]);
+  // Types de question d'un mode du menu ('all' = tous).
+  const drillKinds = (mode) => (mode === 'all' ? Object.keys(DRILL_KINDS) : [mode]);
 
   // Profils proposés dans le sous-menu d'un mode : ceux qui ont au moins une range interrogeable.
   function drillProfiles(mode) {
-    const menu = DRILL_MENU_PROFILES[mode];
-    return PROFILES.filter((p) => (!menu || menu.includes(p.id)) &&
-      drillKinds(mode).some((k) => drillSituationsFor(k, drillProfileIds(mode, p.id), null).length));
+    return PROFILES.filter((p) => drillKinds(mode).some((k) => drillSituationsFor(k, drillProfileIds(p.id), null).length));
   }
 
   function newDrillQuestion() {
-    const ids = drillProfileIds(state.drill, state.drillProfile);
+    const ids = drillProfileIds(state.drillProfile);
     const kinds = drillKinds(state.drill).filter((k) => drillSituationsFor(k, ids).length);
     const kind = pick(kinds);
     const { hero, villain, byProfile } = pick(drillSituationsFor(kind, ids));
     const profile = pick(PROFILES.map((p) => p.id).filter((id) => byProfile[id] && (!ids || ids.includes(id))));
     const strat = buildStrategy(byProfile[profile]);
-    // Fréquences par réponse proposée ; le 3bet / 5bet all-in compte comme un 3bet.
+    // Fréquences par réponse proposée (actions de la range regroupées, voir DRILL_KINDS).
+    const { groups } = DRILL_KINDS[kind];
     const freqsOf = (h) => {
-      const s = strat[h];
-      return kind === 'open'
-        ? { raise: s.raise || 0 }
-        : { '3bet': ['5bet', '3bet', '3bvalue', '3blin', '3bpol'].reduce((t, a) => t + (s[a] || 0), 0), call: s.call || 0 };
+      const out = {};
+      Object.entries(groups).forEach(([answer, acts]) => { out[answer] = acts.reduce((t, a) => t + (strat[h][a] || 0), 0); });
+      return out;
     };
-    const border = borderHands(freqsOf);
-    const hand = pickWeightedHand(border.length && Math.random() < DRILL_BORDER_SHARE ? border : allHands());
-    // Fréquence mixte : on tire la bonne réponse au prorata de la stratégie (ex. une main
-    // ouverte à 50 % sera "raise" une fois sur deux).
+    // Défense vs 3bet : seules les mains de la range d'open du héros arrivent dans ce spot.
+    let pool = null;
+    if (kind === 'vs3bet') {
+      const openStrat = heroOpenStrategy(profile, hero);
+      if (openStrat) pool = new Set(allHands().filter((h) => openStrat[h].fold < 0.999));
+    }
+    const candidates = pool ? [...pool] : allHands();
+    const border = borderHands(freqsOf, pool);
+    const hand = pickWeightedHand(border.length && Math.random() < DRILL_BORDER_SHARE ? border : candidates);
+    // Réponse de référence = la plus fréquente (sert au journal des confusions) ; toute réponse
+    // jouée à une fréquence > 0 compte comme juste (voir drillVerdict).
     const freqs = freqsOf(hand);
-    let r = Math.random();
-    const correct = Object.keys(freqs).find((a) => (r -= freqs[a]) < 0) || 'fold';
+    const all = withFoldFreq(freqs);
+    const correct = Object.keys(all).reduce((a, b) => (all[b] > all[a] ? b : a));
     state.hero = hero;
     state.profile = profile;
-    state.villain = villain ? { [villain]: 'raise' } : {};
-    drillQuestion = { kind, villain, hero, profile, hand, correct, freqs: withFoldFreq(freqs) };
+    state.villain = drillVillains(kind, villain);
+    drillQuestion = { kind, villain, hero, profile, hand, correct, freqs: withFoldFreq(freqs), spot: byProfile[profile], mix: strat[hand] };
     drillAnswered = false;
     renderDrillButtons();
   }
@@ -837,9 +915,16 @@
   }
 
   function renderDrillButtons() {
-    $('#drill-actions').innerHTML = DRILL_ANSWERS[drillQuestion.kind].map((a) =>
-      '<button class="drill-btn ' + (a === '3bet' ? 'threebet' : a) + '" type="button" data-answer="' + a + '">' +
-      window.ACTIONS[a].label.toUpperCase() + '</button>').join('');
+    $('#drill-next').hidden = true;
+    $('#drill-feedback').textContent = '';
+    $('#drill-feedback').className = 'drill-feedback';
+    clearDrillFx();
+    const cls = { '3bet': 'threebet', '4bet': 'fourbet' };
+    $('#drill-actions').innerHTML = DRILL_KINDS[drillQuestion.kind].answers.map((a) =>
+      '<button class="drill-btn ' + (cls[a] || a) + '" type="button" data-answer="' + a + '">' +
+      answerLabel(a, drillQuestion).toUpperCase() +
+      (answerSizing(a, drillQuestion) ? ' <span class="sz">' + answerSizing(a, drillQuestion) + '</span>' : '') +
+      '</button>').join('');
   }
 
   const SUITS = [{ s: '♠', color: 'black' }, { s: '♥', color: 'red' }, { s: '♦', color: 'red' }, { s: '♣', color: 'black' }];
@@ -881,29 +966,105 @@
     $('#drill-score').textContent = drillStats.correct + ' / ' + drillStats.total + ' bonnes réponses';
   }
 
+  // Verdict d'une réponse selon la fréquence de la main pour cette réponse : 100 % = juste (vert),
+  // fréquence mixte (ex. combo à 50 %) = juste aussi mais en jaune, 0 % = erreur (rouge).
+  const MIX_EPS = 0.001;
+  const drillVerdict = (q, action) => {
+    const f = q.freqs[action] || 0;
+    return f >= 1 - MIX_EPS ? 'ok' : f > MIX_EPS ? 'mix' : 'ko';
+  };
+
   function answerDrill(action) {
     if (!drillQuestion) return;
-    const ok = action === drillQuestion.correct;
-    recordDrillAnswer(drillQuestion, action);
+    const q = drillQuestion;
+    const verdict = drillVerdict(q, action);
+    const ok = verdict !== 'ko';
+    recordDrillAnswer(q, action, ok);
     drillStats.total++;
     if (ok) drillStats.correct++;
     drillAnswered = true;
 
+    // Réponses jouées par la stratégie, de la plus fréquente à la moins fréquente.
+    const played = DRILL_KINDS[q.kind].answers.filter((a) => (q.freqs[a] || 0) > MIX_EPS)
+      .sort((a, b) => q.freqs[b] - q.freqs[a]);
+    const mixText = played.map((a) => answerText(a, q).toLowerCase() + ' ' + Math.round(q.freqs[a] * 100) + ' %').join(' / ');
     const feedback = $('#drill-feedback');
-    feedback.textContent = ok ? 'Correct !' : 'Perdu — la bonne réponse était ' + window.ACTIONS[drillQuestion.correct].label.toLowerCase() + '.';
-    feedback.className = 'drill-feedback ' + (ok ? 'correct' : 'wrong');
-    document.querySelectorAll('.drill-btn').forEach((b) => { b.disabled = true; });
+    feedback.textContent = verdict === 'ok' ? 'Correct !'
+      : verdict === 'mix' ? 'Main mixte : ' + mixText
+      : played.length > 1 ? 'Perdu — main mixte : ' + mixText
+      : 'Perdu — la bonne réponse était ' + answerText(played[0], q).toLowerCase() + '.';
+    feedback.className = 'drill-feedback ' + { ok: 'correct', mix: 'mixed', ko: 'wrong' }[verdict];
+    document.querySelectorAll('.drill-btn').forEach((b) => {
+      b.disabled = true;
+      b.classList.toggle('given', b.dataset.answer === action);
+      b.classList.toggle('expected', played.includes(b.dataset.answer));
+    });
+    animateHeroAnswer(action, q);
+    $('.panel').classList.add('drill-' + verdict);
     renderGrid();
     renderDrillScore();
+    // L'utilisateur passe lui-même à la question suivante (bouton Suivant, Entrée ou Espace).
+    const next = $('#drill-next');
+    next.hidden = false;
+    next.focus();
+  }
 
-    const question = drillQuestion;
-    setTimeout(() => {
-      if (drillQuestion !== question) return; // drill arrêté ou relancé entre-temps
-      newDrillQuestion();
-      render();
-      feedback.textContent = '';
-      feedback.className = 'drill-feedback';
-    }, 1800);
+  /* Animations de la réponse : jeton du héros vers la table (relance ou call, avec le montant),
+     cartes jetées vers le centre (fold ; rien sur un check). Le jeton reste posé jusqu'à la
+     question suivante. */
+
+  function clearDrillFx() {
+    tableEl.querySelectorAll('.fx-bet, .fx-card').forEach((el) => el.remove());
+    $('.panel').classList.remove('drill-ok', 'drill-mix', 'drill-ko');
+  }
+
+  // Montant misé par la réponse : call = mise à suivre ; relance = taille de la variante que la
+  // main joue le plus (ex. 3b polarisé 13 plutôt que linéaire 11), « AI » pour le 4bet all-in.
+  function answerAmount(a, q) {
+    if (a === 'call') return fmt(tableLevel);
+    const acts = (DRILL_KINDS[q.kind].groups[a] || []).filter((x) => q.spot.actions[x]);
+    if (!acts.length) return fmt(q.spot.size);
+    const best = acts.reduce((x, y) => ((q.mix[y] || 0) > (q.mix[x] || 0) ? y : x));
+    if (best === 'jam') return 'AI';
+    return fmt((q.spot.sizes && q.spot.sizes[best]) || q.spot.size);
+  }
+
+  function animateHeroAnswer(a, q) {
+    clearDrillFx();
+    const [x, y] = seatXY(q.hero);
+    const place = (el, px, py) => { el.style.left = px + '%'; el.style.top = py + '%'; };
+    if (a === 'fold') {
+      if (answerLabel(a, q) !== 'Fold') return; // check de la BB : pas de carte jetée
+      [-1, 1].forEach((side) => {
+        const card = document.createElement('div');
+        card.className = 'fx-card';
+        card.style.setProperty('--rot', side * 8 + 'deg');
+        place(card, x + side * 1.2, y - 9);
+        tableEl.appendChild(card);
+        card.getBoundingClientRect(); // fixe la position de départ avant la transition
+        card.classList.add('go');
+        card.style.setProperty('--rot', side * 160 + 'deg');
+        place(card, lerp(x, CENTER[0], 0.75) + side * 3, lerp(y, CENTER[1], 0.75));
+        setTimeout(() => card.remove(), 800);
+      });
+      return;
+    }
+    const bet = document.createElement('div');
+    bet.className = 'bet fx-bet';
+    bet.innerHTML = '<span class="chip"></span><span class="amt"></span>';
+    bet.querySelector('.chip').style.background = window.ACTIONS[a].color;
+    bet.querySelector('.amt').textContent = answerAmount(a, q);
+    place(bet, x, y - 4);
+    tableEl.appendChild(bet);
+    bet.getBoundingClientRect();
+    bet.classList.add('show');
+    place(bet, lerp(x, CENTER[0], 0.42), lerp(y, CENTER[1], 0.42));
+  }
+
+  function nextDrillQuestion() {
+    if (!state.drill || !drillAnswered) return;
+    newDrillQuestion();
+    render();
   }
 
   // Bouton Drill : ouvre le menu des modes, ou arrête le drill en cours.
@@ -921,6 +1082,7 @@
     state.drillHero = null;
     $('#drill-menu').hidden = true;
     closeDrillSubmenus();
+    clearDrillFx();
     const btn = $('#drill-toggle');
     btn.classList.toggle('active', !!mode);
     btn.textContent = mode
@@ -994,39 +1156,45 @@
     try { localStorage.setItem(DRILL_LOG_KEY, JSON.stringify(log)); } catch (e) { /* stockage indisponible */ }
   }
 
-  function recordDrillAnswer(q, action) {
+  // ok = réponse jouée à une fréquence > 0 (voir drillVerdict) : seules les autres sont des
+  // erreurs. « mix » ne compte plus que les erreurs enregistrées avant cette règle.
+  function recordDrillAnswer(q, action, ok) {
     const log = loadDrillLog();
     const key = [q.kind, q.hero, q.villain || '', q.profile, q.hand].join('|');
     const e = log[key] || (log[key] = { n: 0, w: 0, mix: 0, m: {} });
     e.n++;
-    if (action !== q.correct) {
+    if (!ok) {
       e.w++;
-      if ((q.freqs[action] || 0) > 0.001) e.mix++;
       const k = action + '>' + q.correct;
       e.m[k] = (e.m[k] || 0) + 1;
     }
     saveDrillLog(log);
   }
 
-  // Entrées du journal, filtrées par type de question ('all' | 'open' | 'threebet') et par profil.
+  // Entrées du journal, filtrées par type de question ('all' ou une clé de DRILL_KINDS) et par
+  // profil. Les réponses 3b de BB enregistrées avant le mode « Def BB » y sont rangées.
   function drillLogEntries(mode, profile) {
     return Object.entries(loadDrillLog()).map(([key, e]) => {
-      const [kind, hero, villain, prof, hand] = key.split('|');
+      const [k, hero, villain, prof, hand] = key.split('|');
+      const kind = k === 'threebet' && hero === 'BB' ? 'bbdef' : k;
       return Object.assign({ key, kind, hero, villain: villain || null, profile: prof, hand }, e);
-    }).filter((e) => profileOf(e.profile) && (mode === 'all' || e.kind === mode) && (!profile || e.profile === profile));
+    }).filter((e) => profileOf(e.profile) && DRILL_KINDS[e.kind] && (mode === 'all' || e.kind === mode) &&
+      (!profile || e.profile === profile));
   }
 
-  const drillSpotLabel = (e) => (e.kind === 'open' ? e.hero + ' – Open' : e.hero + ' vs ' + e.villain + ' – 3bet');
+  const DRILL_SPOT_NAMES = { threebet: '3bet', bbdef: 'Def BB', vs3bet: 'Def vs 3bet', squeeze: 'Squeeze', iso: 'Iso sur limp' };
+  const drillSpotLabel = (e) => (e.kind === 'open' ? e.hero + ' – Open'
+    : e.hero + ' vs ' + e.villain.replace('+', ' + ') + ' – ' + DRILL_SPOT_NAMES[e.kind]);
   const pct = (a, b) => (b ? Math.round((a / b) * 100) : 0) + ' %';
   const profileBadge = (id) =>
     '<span class="profile-badge" style="--pc:' + profileOf(id).color + '">' + profileOf(id).label + '</span>';
 
   // Confusion la plus fréquente d'une main, ex. « Fold au lieu de Raise ».
-  function mainMistake(m) {
-    const top = Object.entries(m).sort((a, b) => b[1] - a[1])[0];
+  function mainMistake(e) {
+    const top = Object.entries(e.m).sort((a, b) => b[1] - a[1])[0];
     if (!top) return '';
     const [given, correct] = top[0].split('>');
-    return window.ACTIONS[given].label + ' au lieu de ' + window.ACTIONS[correct].label;
+    return answerLabel(given, e) + ' au lieu de ' + answerLabel(correct, e);
   }
 
   // Filtres de la fenêtre des erreurs (thème du drill + profil).
@@ -1064,7 +1232,7 @@
       .slice(0, 40)
       .map((e) => '<tr class="errors-hand" data-key="' + e.key + '">' +
         '<td class="hand">' + e.hand + '</td><td>' + drillSpotLabel(e) + ' ' + profileBadge(e.profile) + '</td>' +
-        '<td>' + mainMistake(e.m) + '</td>' +
+        '<td>' + mainMistake(e) + '</td>' +
         '<td class="num">' + e.w + ' / ' + e.n +
         (e.mix ? ' <span class="muted" title="Erreurs où la réponse donnée fait aussi partie de la stratégie (main mixte)">(' +
           e.mix + ' mixte' + (e.mix > 1 ? 's' : '') + ')</span>' : '') + '</td></tr>').join('');
@@ -1103,8 +1271,9 @@
     const [kind, hero, villain, profile, hand] = key.split('|');
     closeErrors();
     if (state.drill) setDrill(null);
+    if (!POSITIONS.includes(hero)) setFormat('9max');
     state.hero = hero;
-    state.villain = kind === 'threebet' ? { [villain]: 'raise' } : {};
+    state.villain = drillVillains(kind, villain);
     state.profile = profile;
     state.hovered = hand;
     hideMenu();
@@ -1114,6 +1283,8 @@
   function bindErrors() {
     $('#errors-close').addEventListener('click', closeErrors);
     $('#errors-modal').addEventListener('click', (e) => { if (e.target.id === 'errors-modal') closeErrors(); });
+    $('#errors-modes').innerHTML = DRILL_MODES.map((m) =>
+      '<button type="button" data-mode="' + m.id + '">' + m.label + '</button>').join('');
     $('#errors-modes').addEventListener('click', (e) => {
       const b = e.target.closest('button[data-mode]');
       if (!b) return;
@@ -1162,7 +1333,8 @@
   }
 
   // Décale le bouton Drill (reste dans le nav des positions, jamais déplacé) pour que son bord
-  // gauche coïncide avec celui de la grille de range, quelle que soit sa largeur réelle.
+  // gauche coïncide avec celui de la grille de range, quelle que soit sa largeur réelle ; le bouton
+  // switch de format s'aligne de même sur le bord droit du panneau.
   function positionDrillToggle() {
     const btn = $('#drill-toggle');
     if (getComputedStyle(btn).position !== 'absolute') return;
@@ -1170,6 +1342,9 @@
     const gridRect = gridEl.getBoundingClientRect();
     btn.style.left = (gridRect.left - navRect.left) + 'px';
     $('#drill-menu').style.left = btn.style.left;
+    const sw = $('#format-switch');
+    const panelRect = $('.panel').getBoundingClientRect();
+    sw.style.left = (panelRect.right - navRect.left - sw.offsetWidth) + 'px';
   }
 
   function render() {
@@ -1181,7 +1356,10 @@
     positionDrillToggle();
   }
 
+  // (Re)construit les boutons de position du format courant.
   function buildPositions(nav) {
+    nav.querySelectorAll('button[data-pos]').forEach((b) => b.remove());
+    nav.classList.toggle('nine', POSITIONS.length > 6);
     POSITIONS.forEach((pos) => {
       const b = document.createElement('button');
       b.type = 'button';
@@ -1290,12 +1468,20 @@
   function bindKeys() {
     document.addEventListener('keydown', (e) => {
       if (e.key === 'Escape') { $('#drill-menu').hidden = true; closeErrors(); }
-      if (state.drill) { if (e.key === 'Escape') hideMenu(); return; }
+      if (state.drill) {
+        if (e.key === 'Escape') hideMenu();
+        if ((e.key === 'Enter' || e.key === ' ') && drillAnswered && $('#errors-modal').hidden) {
+          e.preventDefault();
+          nextDrillQuestion();
+        }
+        return;
+      }
       if (e.key === 'Escape') {
         hideMenu();
       } else if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') {
+        const n = POSITIONS.length;
         const i = posIdx(state.hero) + (e.key === 'ArrowRight' ? 1 : -1);
-        selectHero(POSITIONS[(i + 6) % 6]);
+        selectHero(POSITIONS[(i + n) % n]);
       } else if ((e.key === 'ArrowUp' || e.key === 'ArrowDown')) {
         e.preventDefault();
         const { profile, profiles } = currentSpot();
@@ -1305,18 +1491,59 @@
     });
   }
 
+  /* ---------- Switch de format (9max / 6max) ---------- */
+
+  const FORMAT_KEY = 'rpok.format';
+
+  // Change le format de table : positions, sièges et boutons de position. Le héros garde sa
+  // position si elle existe dans le nouveau format, sinon il passe sur la première.
+  function setFormat(format) {
+    state.format = format;
+    POSITIONS = FORMATS[format];
+    state.villain = {};
+    if (!POSITIONS.includes(state.hero)) state.hero = POSITIONS[0];
+    if (state.drillHero && !POSITIONS.includes(state.drillHero)) state.drillHero = null;
+    hideMenu();
+    buildPositions($('#positions'));
+    buildTable();
+    document.querySelectorAll('#format-switch button').forEach((b) =>
+      b.classList.toggle('active', b.dataset.format === format));
+  }
+
+  // Clic sur le switch : mémorise le format et réaffiche ; un drill en cours repart sur une
+  // question du nouveau format (même mode et même profil).
+  function switchFormat(format) {
+    if (format === state.format) return;
+    try { localStorage.setItem(FORMAT_KEY, format); } catch (e) { /* stockage indisponible */ }
+    setFormat(format);
+    if (state.drill) newDrillQuestion();
+    render();
+  }
+
+  function bindFormatSwitch() {
+    $('#format-switch').addEventListener('click', (e) => {
+      e.stopPropagation();
+      const b = e.target.closest('button[data-format]');
+      if (b) switchFormat(b.dataset.format);
+    });
+  }
+
   $('#drill-toggle').addEventListener('click', toggleDrill);
   $('#drill-actions').addEventListener('click', (e) => {
     const b = e.target.closest('.drill-btn');
     if (b && !b.disabled) answerDrill(b.dataset.answer);
   });
+  $('#drill-next').addEventListener('click', nextDrillQuestion);
   window.addEventListener('resize', positionDrillToggle);
 
-  buildPositions($('#positions'));
-  buildTable();
+  let savedFormat = null;
+  try { savedFormat = localStorage.getItem(FORMAT_KEY); } catch (e) { /* stockage indisponible */ }
+  setFormat(FORMATS[savedFormat] ? savedFormat : '6max');
+  state.hero = POSITIONS[0];
   buildProfiles();
   buildDrillMenu();
   bindErrors();
+  bindFormatSwitch();
   buildGrid();
   bindKeys();
   selectHero(state.hero);
