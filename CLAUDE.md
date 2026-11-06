@@ -18,10 +18,12 @@ S'ouvre directement via `index.html`. Les ranges sont en lecture seule dans l'in
 ## Drill
 
 Le bouton Drill ouvre un menu de modes : **ALL** (questions open et 3b mélangées au hasard), **Open**, **3b** ; chaque mode ouvre un sous-menu (survol ou clic) « Tous profils » + les profils qui ont au moins une range pour ce mode, pour s'entraîner sur un seul profil (ex. Open → vs. reg ; le libellé du bouton devient « Drill · Open · vs. reg ») ; un nouveau clic arrête le drill.
+Exception pour le mode Open : le sous-menu ne propose que vs. aggro, vs. reg et vs. soft, et « vs. soft » regroupe soft, passif, nit et super nit (`DRILL_MENU_PROFILES` / `DRILL_PROFILE_GROUPS` dans `js/app.js`) ; ALL et 3b gardent un choix par profil.
 Chaque question tire au hasard une situation (open : héros ; 3b : héros + ouvreur), un profil défini pour ce spot et une main ; réponses Fold/Raise (open) ou Fold/Call/3bet (3b, le 3bet/5bet all-in compte comme 3bet). La bonne réponse est tirée au prorata des fréquences de la range.
 Le tirage vise les mains « border » (`DRILL_BORDER_SHARE` = 85 % des questions) : fréquence mixte, ou une des 8 cases voisines de la grille (diagonales comprises) a une autre action majoritaire ; le reste est tiré parmi toutes les mains, toujours pondéré par les combos.
 Pendant le drill, cliquer sur le siège du héros verrouille sa position (`state.drillHero`, cadenas en haut à droite du siège) : les questions suivantes ne portent que sur cette position, dans le mode et le profil choisis ; un nouveau clic la déverrouille, et changer ou arrêter le drill la libère.
 Pendant le drill, le siège du héros n'a ni jetons ni montant, juste un « ? » dans l'encadré jaune ; la grille est révélée après la réponse.
+Chaque réponse est enregistrée dans `localStorage` (clé `rpok.drillLog.v1`, cumul par type|héros|ouvreur|profil|main : réponses, erreurs, erreurs sur main mixte où la réponse donnée a une fréquence > 0, et confusions « donnée>attendue »). L'entrée **Erreurs** du menu Drill ouvre une fenêtre filtrable par thème (ALL / Open / 3b) et par profil : spots les plus ratés, puis mains les plus ratées (vraies erreurs d'abord) avec l'erreur type ; cliquer une main affiche la range de son spot avec son détail. Bouton Réinitialiser pour vider le journal.
 
 ## Spots
 
@@ -44,6 +46,7 @@ Le menu ne montre que les profils qui ont une range pour le spot affiché (vs. r
 | `aggro` | vs. aggro | -1 |
 | `gto` | vs. reg (stratégie de base, par défaut) | 0 |
 | `lin` | vs. reg linéaire | — |
+| `soft` | vs. soft (passif + nit regroupés, open LJ/HJ/CO ; `fish` / `nit` y retombent via `PROFILE_ALIASES`) | — |
 | `fish` | vs. passif | +1 |
 | `nit` | vs. nit | +2 |
 | `supernit` | vs. super nit | +3 |

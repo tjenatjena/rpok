@@ -9,6 +9,8 @@
   --felt: #1d6b47;
   --felt-dark: #0f4a30;
   --rail: #3a2a1f;
+  /* Hauteur de la table : la bande table + profils ne dépasse jamais cette hauteur. */
+  --table-h: clamp(140px, 26vh, 230px);
 }
 
 * { box-sizing: border-box; }
@@ -87,27 +89,88 @@ main {
 .drill-item:hover > .drill-sub, .drill-item.open > .drill-sub { display: flex; }
 .drill-sub .drill-profile { border-left: 3px solid var(--pc); }
 
+/* Entrée « Erreurs » du menu Drill (ouvre le journal des erreurs). */
+.drill-menu .drill-errors { margin-top: 4px; color: var(--muted); }
+.drill-menu .drill-errors:hover { color: var(--text); }
+
+/* ---------- Journal des erreurs du drill ---------- */
+
+.modal {
+  position: fixed; inset: 0; z-index: 50;
+  display: grid; place-items: center; padding: 16px;
+  background: rgba(0,0,0,.6);
+}
+.modal[hidden] { display: none; }
+.modal-box {
+  width: min(720px, 100%); max-height: calc(100vh - 32px);
+  display: flex; flex-direction: column; gap: 10px;
+  padding: 14px 16px; border-radius: 12px;
+  background: var(--surface); border: 1px solid var(--border);
+  box-shadow: 0 12px 40px rgba(0,0,0,.6);
+}
+.modal-head { display: flex; align-items: center; justify-content: space-between; }
+.modal-head h2 { margin: 0; font-size: 17px; }
+.modal-close {
+  font: inherit; font-size: 22px; line-height: 1; padding: 0 6px;
+  background: none; border: 0; color: var(--muted); cursor: pointer;
+}
+.modal-close:hover { color: var(--text); }
+.errors-filters { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; }
+.errors-modes { display: flex; gap: 4px; }
+.errors-modes button, .errors-filters select, .modal-foot button {
+  font: inherit; font-weight: 600; font-size: 13px; color: var(--text);
+  padding: 4px 12px; border-radius: 6px;
+  border: 1px solid var(--border); background: var(--surface-2); cursor: pointer;
+}
+.errors-modes button.active { background: var(--accent); border-color: var(--accent); color: #fff; }
+.errors-body { overflow-y: auto; min-height: 0; font-size: 13px; }
+.errors-body h3 { font-size: 14px; margin: 14px 0 6px; }
+.errors-body h3 .muted { font-weight: 400; font-size: 12px; }
+.errors-summary { margin: 0; }
+.errors-table { width: 100%; border-collapse: collapse; }
+.errors-table th {
+  text-align: left; color: var(--muted); font-weight: 500; font-size: 12px;
+  padding: 4px 6px; border-bottom: 1px solid var(--border);
+}
+.errors-table td { padding: 5px 6px; border-bottom: 1px solid var(--border); }
+.errors-table .num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.errors-table .hand { font-weight: 700; }
+.errors-hand { cursor: pointer; }
+.errors-hand:hover td { background: var(--surface-2); }
+.modal-foot { display: flex; justify-content: flex-end; }
+.modal-foot button:hover { border-color: var(--accent); color: var(--accent); }
+
 /* ---------- Profil de la table ---------- */
 
 .profiles {
   flex: none;
   width: 150px;
+  /* Jamais plus haut que la table, sinon la grille et les notes descendent (5 ou 6 profils). */
+  max-height: 100%;
+  display: flex; flex-direction: column;
   background: var(--surface); border: 1px solid var(--border); border-radius: 12px;
   padding: 10px 12px;
 }
 /* Clone invisible de .profiles côté gauche pour que .table reste centré malgré le panneau de droite. */
 .profiles-ghost { visibility: hidden; pointer-events: none; }
 .profiles h3 {
+  flex: none;
   margin: 0 0 6px; font-size: 11px; font-weight: 600; text-align: center;
   text-transform: uppercase; letter-spacing: .8px; color: var(--muted);
 }
-.profile-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 2px; }
+.profile-list {
+  list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 2px;
+  min-height: 0; flex: 0 1 auto;
+}
+/* Les boutons rétrécissent ensemble quand la liste est plus haute que la place disponible. */
+.profile-list li { flex: 0 1 26px; min-height: 0; display: flex; }
+.profile-list li[hidden] { display: none; }
 /* --pc : couleur du profil, posée par js/app.js (PROFILES). */
 .profile-list button {
-  width: 120px; display: block;
-  font: inherit; font-size: 13px; font-weight: 600; text-align: center;
+  width: 120px; min-height: 0; overflow: hidden; /* hauteur : étiré sur celle du li */
+  font: inherit; font-size: 13px; line-height: 1; font-weight: 600; text-align: center;
   color: #fff; background: var(--pc); text-shadow: 0 1px 1px rgba(0,0,0,.35);
-  padding: 4px 8px; border-radius: 6px; border: 2px solid transparent;
+  padding: 0 8px; border-radius: 6px; border: 2px solid transparent;
   cursor: pointer; white-space: nowrap; opacity: .5;
 }
 .profile-list button:hover { opacity: .8; }
@@ -149,11 +212,14 @@ main {
 
 /* ---------- Table ---------- */
 
-.table-wrap { display: flex; justify-content: center; align-items: center; gap: 20px; flex: none; }
+.table-wrap {
+  display: flex; justify-content: center; align-items: center; gap: 20px; flex: none;
+  height: var(--table-h);
+}
 
 .table {
   position: relative;
-  height: clamp(140px, 26vh, 230px);
+  height: var(--table-h);
   aspect-ratio: 2.2 / 1;
   font-size: clamp(9px, 1.5vh, 12px);
 }
@@ -397,9 +463,11 @@ main {
   .grid { height: auto; width: 100%; max-width: none; }
   .cell { aspect-ratio: 1; font-size: clamp(7px, 2.6vw, 13px); }
   .panel { width: auto; max-height: none; }
-  .table-wrap { flex-direction: column; }
+  .table-wrap { flex-direction: column; height: auto; }
   .profiles-ghost { display: none; }
-  .profiles { width: auto; }
+  .profiles { width: auto; max-height: none; }
+  .profile-list li { flex: none; }
+  .profile-list button { height: auto; padding: 4px 8px; }
   .profile-list { flex-direction: row; flex-wrap: wrap; }
   .profile-list button { width: auto; }
 }

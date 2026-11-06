@@ -15,6 +15,7 @@
     { id: 'aggro', label: 'vs. aggro', color: '#22c7e0' },
     { id: 'gto', label: 'vs. reg', color: '#d92b2b' },
     { id: 'lin', label: 'vs. reg linéaire', color: '#f08a24' },
+    { id: 'soft', label: 'vs. soft', color: '#7cc43a' },
     { id: 'fish', label: 'vs. passif', color: '#ec6fb4' },
     { id: 'nit', label: 'vs. nit', color: '#3d5fd6' },
     { id: 'supernit', label: 'vs. super nit', color: '#2333a3' },
@@ -25,6 +26,17 @@
     { id: 'limp037', label: 'vs. 0-37', color: '#c9972e' },
   ];
   const profileOf = (id) => PROFILES.find((p) => p.id === id);
+
+  // Profils voisins : vs. soft (open LJ/HJ/CO) regroupe vs. passif et vs. nit, donc un choix
+  // passif / nit retombe sur soft là où seul soft est défini.
+  const PROFILE_ALIASES = { fish: 'soft', nit: 'soft' };
+
+  // Profil réellement utilisé pour un spot : celui demandé, sinon son alias, sinon gto.
+  function resolveProfile(byProfile, id) {
+    if (byProfile[id]) return id;
+    if (byProfile[PROFILE_ALIASES[id]]) return PROFILE_ALIASES[id];
+    return byProfile.gto ? 'gto' : null;
+  }
 
 
   // Actions qu'on peut donner à un vilain en cliquant sur son siège.
@@ -81,7 +93,7 @@
     // 'gto' n'apparaît que s'il est défini pour ce spot (ex. pas de vs. reg sur l'iso sur limp) ;
     // le profil choisi revient sur gto s'il est défini, sinon sur le premier profil disponible.
     const profiles = PROFILES.map((p) => p.id).filter((id) => byProfile[id]);
-    const profile = byProfile[state.profile] ? state.profile : (byProfile.gto ? 'gto' : profiles[0]);
+    const profile = resolveProfile(byProfile, state.profile) || profiles[0];
     return { kind, villain, caller: callerPos, spot: byProfile[profile] || EMPTY_SPOT, missing: false, profile, profiles };
   }
 
@@ -312,7 +324,7 @@
   // du spot affiché).
   function heroOpenStrategy(profile) {
     const byProfile = window.RANGES.open[state.hero] || {};
-    const openSpot = byProfile[profile] || byProfile.gto;
+    const openSpot = byProfile[resolveProfile(byProfile, profile)];
     if (!openSpot) return null;
     const savedErrors = parseErrors;
     const strat = buildStrategy(openSpot);
@@ -754,8 +766,22 @@
   // Situations d'un type de question restreintes au profil choisi dans le sous-menu (null = tous
   // les profils) et à la position du héros verrouillée en cliquant sur son siège (state.drillHero,
   // null = toutes).
-  function drillSituationsFor(kind, profile, hero = state.drillHero) {
-    return drillSituations(kind).filter((s) => (!profile || s.byProfile[profile]) && (!hero || s.hero === hero));
+  // profileIds : profils acceptés (null = tous), voir drillProfileIds.
+  function drillSituationsFor(kind, profileIds, hero = state.drillHero) {
+    return drillSituations(kind).filter((s) =>
+      (!profileIds || profileIds.some((id) => s.byProfile[id])) && (!hero || s.hero === hero));
+  }
+
+  // Drill Open : le sous-menu ne propose que vs. aggro, vs. reg et vs. soft, et « vs. soft »
+  // regroupe tous les profils exploitants (soft, passif, nit, super nit). Les autres modes gardent
+  // un choix par profil.
+  const DRILL_MENU_PROFILES = { open: ['aggro', 'gto', 'soft'] };
+  const DRILL_PROFILE_GROUPS = { open: { soft: ['soft', 'fish', 'nit', 'supernit'] } };
+
+  // Profils couverts par le choix du sous-menu pour un mode (null = tous les profils).
+  function drillProfileIds(mode, profile) {
+    if (!profile) return null;
+    return (DRILL_PROFILE_GROUPS[mode] || {})[profile] || [profile];
   }
 
   // Clic sur le siège du héros pendant le drill : verrouille / déverrouille sa position.
@@ -770,14 +796,17 @@
 
   // Profils proposés dans le sous-menu d'un mode : ceux qui ont au moins une range interrogeable.
   function drillProfiles(mode) {
-    return PROFILES.filter((p) => drillKinds(mode).some((k) => drillSituationsFor(k, p.id, null).length));
+    const menu = DRILL_MENU_PROFILES[mode];
+    return PROFILES.filter((p) => (!menu || menu.includes(p.id)) &&
+      drillKinds(mode).some((k) => drillSituationsFor(k, drillProfileIds(mode, p.id), null).length));
   }
 
   function newDrillQuestion() {
-    const kinds = drillKinds(state.drill).filter((k) => drillSituationsFor(k, state.drillProfile).length);
+    const ids = drillProfileIds(state.drill, state.drillProfile);
+    const kinds = drillKinds(state.drill).filter((k) => drillSituationsFor(k, ids).length);
     const kind = pick(kinds);
-    const { hero, villain, byProfile } = pick(drillSituationsFor(kind, state.drillProfile));
-    const profile = state.drillProfile || pick(PROFILES.map((p) => p.id).filter((id) => byProfile[id]));
+    const { hero, villain, byProfile } = pick(drillSituationsFor(kind, ids));
+    const profile = pick(PROFILES.map((p) => p.id).filter((id) => byProfile[id] && (!ids || ids.includes(id))));
     const strat = buildStrategy(byProfile[profile]);
     // Fréquences par réponse proposée ; le 3bet / 5bet all-in compte comme un 3bet.
     const freqsOf = (h) => {
@@ -796,9 +825,15 @@
     state.hero = hero;
     state.profile = profile;
     state.villain = villain ? { [villain]: 'raise' } : {};
-    drillQuestion = { kind, hero, profile, hand, correct };
+    drillQuestion = { kind, villain, hero, profile, hand, correct, freqs: withFoldFreq(freqs) };
     drillAnswered = false;
     renderDrillButtons();
+  }
+
+  // Ajoute la fréquence du fold (le reste) aux fréquences des réponses proposées.
+  function withFoldFreq(freqs) {
+    const sum = Object.values(freqs).reduce((a, b) => a + b, 0);
+    return Object.assign({ fold: Math.max(0, 1 - sum) }, freqs);
   }
 
   function renderDrillButtons() {
@@ -849,6 +884,7 @@
   function answerDrill(action) {
     if (!drillQuestion) return;
     const ok = action === drillQuestion.correct;
+    recordDrillAnswer(drillQuestion, action);
     drillStats.total++;
     if (ok) drillStats.correct++;
     drillAnswered = true;
@@ -936,6 +972,166 @@
       });
       item.append(head, sub);
       menu.appendChild(item);
+    });
+    const errors = button('Erreurs', openErrors);
+    errors.className = 'drill-errors';
+    menu.appendChild(errors);
+  }
+
+  /* ---------- Journal des erreurs du drill ---------- */
+
+  // Chaque réponse du drill est cumulée dans localStorage (propre à ce navigateur), par question :
+  // clé « type|héros|ouvreur|profil|main » -> { n: réponses, w: erreurs, mix: erreurs où la réponse
+  // donnée avait quand même une fréquence > 0 (main mixte, souvent juste le tirage),
+  // m: { 'donnée>attendue': nombre } }.
+  const DRILL_LOG_KEY = 'rpok.drillLog.v1';
+
+  function loadDrillLog() {
+    try { return JSON.parse(localStorage.getItem(DRILL_LOG_KEY)) || {}; } catch (e) { return {}; }
+  }
+
+  function saveDrillLog(log) {
+    try { localStorage.setItem(DRILL_LOG_KEY, JSON.stringify(log)); } catch (e) { /* stockage indisponible */ }
+  }
+
+  function recordDrillAnswer(q, action) {
+    const log = loadDrillLog();
+    const key = [q.kind, q.hero, q.villain || '', q.profile, q.hand].join('|');
+    const e = log[key] || (log[key] = { n: 0, w: 0, mix: 0, m: {} });
+    e.n++;
+    if (action !== q.correct) {
+      e.w++;
+      if ((q.freqs[action] || 0) > 0.001) e.mix++;
+      const k = action + '>' + q.correct;
+      e.m[k] = (e.m[k] || 0) + 1;
+    }
+    saveDrillLog(log);
+  }
+
+  // Entrées du journal, filtrées par type de question ('all' | 'open' | 'threebet') et par profil.
+  function drillLogEntries(mode, profile) {
+    return Object.entries(loadDrillLog()).map(([key, e]) => {
+      const [kind, hero, villain, prof, hand] = key.split('|');
+      return Object.assign({ key, kind, hero, villain: villain || null, profile: prof, hand }, e);
+    }).filter((e) => profileOf(e.profile) && (mode === 'all' || e.kind === mode) && (!profile || e.profile === profile));
+  }
+
+  const drillSpotLabel = (e) => (e.kind === 'open' ? e.hero + ' – Open' : e.hero + ' vs ' + e.villain + ' – 3bet');
+  const pct = (a, b) => (b ? Math.round((a / b) * 100) : 0) + ' %';
+  const profileBadge = (id) =>
+    '<span class="profile-badge" style="--pc:' + profileOf(id).color + '">' + profileOf(id).label + '</span>';
+
+  // Confusion la plus fréquente d'une main, ex. « Fold au lieu de Raise ».
+  function mainMistake(m) {
+    const top = Object.entries(m).sort((a, b) => b[1] - a[1])[0];
+    if (!top) return '';
+    const [given, correct] = top[0].split('>');
+    return window.ACTIONS[given].label + ' au lieu de ' + window.ACTIONS[correct].label;
+  }
+
+  // Filtres de la fenêtre des erreurs (thème du drill + profil).
+  const errorsView = { mode: 'all', profile: null };
+
+  function renderErrors() {
+    document.querySelectorAll('#errors-modes button').forEach((b) =>
+      b.classList.toggle('active', b.dataset.mode === errorsView.mode));
+    const entries = drillLogEntries(errorsView.mode, errorsView.profile);
+    const total = entries.reduce((t, e) => t + e.n, 0);
+    const wrong = entries.reduce((t, e) => t + e.w, 0);
+    const mix = entries.reduce((t, e) => t + e.mix, 0);
+    const body = $('#errors-body');
+    if (!total) {
+      body.innerHTML = '<p class="muted">Aucune réponse enregistrée pour ce filtre : lance un drill pour remplir le journal.</p>';
+      return;
+    }
+
+    // Cumul par spot (type + héros + ouvreur + profil).
+    const spots = {};
+    entries.forEach((e) => {
+      const k = [e.kind, e.hero, e.villain, e.profile].join('|');
+      const s = spots[k] || (spots[k] = { kind: e.kind, hero: e.hero, villain: e.villain, profile: e.profile, n: 0, w: 0 });
+      s.n += e.n;
+      s.w += e.w;
+    });
+    const spotRows = Object.values(spots).filter((s) => s.w)
+      .sort((a, b) => b.w - a.w || b.w / b.n - a.w / a.n)
+      .map((s) => '<tr><td>' + drillSpotLabel(s) + '</td><td>' + profileBadge(s.profile) + '</td>' +
+        '<td class="num">' + s.w + ' / ' + s.n + '</td><td class="num">' + pct(s.w, s.n) + '</td></tr>').join('');
+
+    // Mains les plus ratées : d'abord les vraies erreurs (hors main mixte), puis le total.
+    const handRows = entries.filter((e) => e.w)
+      .sort((a, b) => (b.w - b.mix) - (a.w - a.mix) || b.w - a.w || b.w / b.n - a.w / a.n)
+      .slice(0, 40)
+      .map((e) => '<tr class="errors-hand" data-key="' + e.key + '">' +
+        '<td class="hand">' + e.hand + '</td><td>' + drillSpotLabel(e) + ' ' + profileBadge(e.profile) + '</td>' +
+        '<td>' + mainMistake(e.m) + '</td>' +
+        '<td class="num">' + e.w + ' / ' + e.n +
+        (e.mix ? ' <span class="muted" title="Erreurs où la réponse donnée fait aussi partie de la stratégie (main mixte)">(' +
+          e.mix + ' mixte' + (e.mix > 1 ? 's' : '') + ')</span>' : '') + '</td></tr>').join('');
+
+    body.innerHTML =
+      '<p class="errors-summary"><b>' + wrong + '</b> erreurs sur <b>' + total + '</b> réponses (' + pct(wrong, total) + ')' +
+      (mix ? ' <span class="muted">· dont ' + mix + ' sur une main mixte (réponse jouée à une fréquence &gt; 0)</span>' : '') + '</p>' +
+      (spotRows
+        ? '<h3>Spots les plus ratés</h3><table class="errors-table"><thead><tr><th>Spot</th><th>Profil</th>' +
+          '<th class="num">Erreurs</th><th class="num">Taux</th></tr></thead><tbody>' + spotRows + '</tbody></table>' +
+          '<h3>Mains les plus ratées <span class="muted">(clic : voir la range)</span></h3><table class="errors-table">' +
+          '<thead><tr><th>Main</th><th>Spot</th><th>Erreur type</th><th class="num">Erreurs</th></tr></thead><tbody>' +
+          handRows + '</tbody></table>'
+        : '<p class="muted">Aucune erreur pour ce filtre.</p>');
+  }
+
+  function openErrors() {
+    $('#drill-menu').hidden = true;
+    closeDrillSubmenus();
+    const sel = $('#errors-profile');
+    const used = new Set(drillLogEntries('all', null).map((e) => e.profile));
+    if (errorsView.profile && !used.has(errorsView.profile)) errorsView.profile = null;
+    sel.innerHTML = '<option value="">Tous profils</option>' + PROFILES.filter((p) => used.has(p.id))
+      .map((p) => '<option value="' + p.id + '">' + p.label + '</option>').join('');
+    sel.value = errorsView.profile || '';
+    $('#errors-modal').hidden = false;
+    renderErrors();
+  }
+
+  function closeErrors() {
+    $('#errors-modal').hidden = true;
+  }
+
+  // Clic sur une main ratée : affiche la range de son spot (hors drill) avec le détail de la main.
+  function showErrorHand(key) {
+    const [kind, hero, villain, profile, hand] = key.split('|');
+    closeErrors();
+    if (state.drill) setDrill(null);
+    state.hero = hero;
+    state.villain = kind === 'threebet' ? { [villain]: 'raise' } : {};
+    state.profile = profile;
+    state.hovered = hand;
+    hideMenu();
+    render();
+  }
+
+  function bindErrors() {
+    $('#errors-close').addEventListener('click', closeErrors);
+    $('#errors-modal').addEventListener('click', (e) => { if (e.target.id === 'errors-modal') closeErrors(); });
+    $('#errors-modes').addEventListener('click', (e) => {
+      const b = e.target.closest('button[data-mode]');
+      if (!b) return;
+      errorsView.mode = b.dataset.mode;
+      renderErrors();
+    });
+    $('#errors-profile').addEventListener('change', (e) => {
+      errorsView.profile = e.target.value || null;
+      renderErrors();
+    });
+    $('#errors-body').addEventListener('click', (e) => {
+      const row = e.target.closest('.errors-hand');
+      if (row) showErrorHand(row.dataset.key);
+    });
+    $('#errors-reset').addEventListener('click', () => {
+      if (!confirm('Effacer tout le journal des erreurs du drill ?')) return;
+      saveDrillLog({});
+      openErrors();
     });
   }
 
@@ -1093,7 +1289,7 @@
 
   function bindKeys() {
     document.addEventListener('keydown', (e) => {
-      if (e.key === 'Escape') $('#drill-menu').hidden = true;
+      if (e.key === 'Escape') { $('#drill-menu').hidden = true; closeErrors(); }
       if (state.drill) { if (e.key === 'Escape') hideMenu(); return; }
       if (e.key === 'Escape') {
         hideMenu();
@@ -1120,6 +1316,7 @@
   buildTable();
   buildProfiles();
   buildDrillMenu();
+  bindErrors();
   buildGrid();
   bindKeys();
   selectHero(state.hero);
