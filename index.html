@@ -39,29 +39,31 @@
       <div id="grid" class="grid"></div>
 
       <aside class="panel">
-        <div class="panel-head">
-          <h2 id="spot-title"></h2>
-          <span id="drill-score" class="drill-score"></span>
+        <div class="panel-main">
+          <div class="panel-head">
+            <h2 id="spot-title"></h2>
+            <span id="drill-score" class="drill-score"></span>
+          </div>
+          <p id="spot-sub" class="muted"></p>
+          <p id="parse-errors" class="parse-errors" hidden></p>
+          <div id="sizing-note" class="sizing-note" hidden></div>
+
+          <ul id="legend" class="legend"></ul>
+
+          <div id="hover" class="hover"></div>
+
+          <div id="drill-panel" class="drill-panel" hidden>
+            <div class="drill-cards">
+              <div id="drill-card-1" class="drill-card"></div>
+              <div id="drill-card-2" class="drill-card"></div>
+            </div>
+            <div id="drill-feedback" class="drill-feedback"></div>
+            <div id="drill-actions" class="drill-actions"></div>
+          </div>
         </div>
-        <p id="spot-sub" class="muted"></p>
-        <p id="parse-errors" class="parse-errors" hidden></p>
-        <div id="sizing-note" class="sizing-note" hidden></div>
-
-        <ul id="legend" class="legend"></ul>
-
-        <div id="hover" class="hover"></div>
-
-        <div id="drill-panel" class="drill-panel" hidden>
-          <div class="drill-cards">
-            <div id="drill-card-1" class="drill-card"></div>
-            <div id="drill-card-2" class="drill-card"></div>
-          </div>
-          <div id="drill-feedback" class="drill-feedback"></div>
-          <div id="drill-actions" class="drill-actions"></div>
-          <div class="drill-nav">
-            <button id="drill-range" class="drill-range" type="button">Voir la range</button>
-            <button id="drill-next" class="drill-next" type="button" hidden>Suivant</button>
-          </div>
+        <div class="drill-nav">
+          <button id="drill-range" class="drill-range" type="button">Voir la range</button>
+          <button id="drill-next" class="drill-next" type="button" hidden>Suivant</button>
         </div>
       </aside>
     </section>

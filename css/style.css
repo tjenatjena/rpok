@@ -519,6 +519,7 @@ main {
 .drill-next[hidden] { display: none; }
 /* Ligne « Voir la range » (petit écran) à gauche + « Suivant » à droite, même largeur. */
 .drill-nav { display: flex; gap: 8px; width: 100%; margin-top: 8px; }
+body:not(.drilling) .drill-nav { display: none; }
 .drill-nav > button { flex: 1 1 0; min-width: 0; }
 .drill-next, .drill-range {
   font: inherit; font-weight: 700; font-size: 15px;
@@ -586,10 +587,21 @@ body:not(.drilling) .drill-score { display: none; }
   .drill-menu .drill-errors { margin-top: 2px; }
   /* Drill sur petit écran : pas de place pour la grille, masquée par défaut ; après la réponse,
      le bouton « Voir la range » l'affiche sous le panneau (les boutons de réponse ne bougent pas). */
-  body.drilling .grid { display: none; order: 2; }
   /* Positions inutiles pendant le drill (c'est la question qui choisit le héros). */
   body.drilling .positions button[data-pos] { display: none; }
-  body.drilling.drill-answered.show-range .grid { display: grid; }
+  /* La zone du drill (titre, cartes, réponses) a la hauteur d'une grille carrée de la largeur
+     du panneau (--stage) ; « Voir la range » pose la grille exactement à sa place, par-dessus,
+     sans changer la hauteur, et la ligne Voir la range / Suivant reste en dessous. */
+  body.drilling .range { position: relative; container-type: inline-size; --stage: min(calc(100cqw - 34px), 480px); }
+  body.drilling .panel-main { height: var(--stage); display: flex; flex-direction: column; }
+  body.drilling .drill-panel { flex: 1; justify-content: center; padding-top: 0; }
+  body.drilling .grid { display: none; }
+  body.drilling.drill-answered.show-range .grid {
+    display: grid; position: absolute; z-index: 1;
+    top: 17px; left: 50%; transform: translateX(-50%);
+    width: var(--stage); height: var(--stage);
+  }
+  body.drilling.drill-answered.show-range .panel-main { visibility: hidden; }
   body.drilling.drill-answered .drill-range { display: block; }
 }
 .drill-range { display: none; }

@@ -264,7 +264,8 @@
 
   function renderDrillButtons() {
     $('#drill-next').hidden = true;
-    document.body.classList.remove('drill-answered');
+    document.body.classList.remove('drill-answered', 'show-range');
+    $('#drill-range').textContent = 'Voir la range';
     $('#drill-feedback').textContent = '';
     $('#drill-feedback').className = 'drill-feedback';
     clearDrillFx();
@@ -339,7 +340,8 @@
     // Réponses jouées par la stratégie, de la plus fréquente à la moins fréquente.
     const played = q.answers.filter((a) => (q.freqs[a] || 0) > MIX_EPS)
       .sort((a, b) => q.freqs[b] - q.freqs[a]);
-    const mixText = played.map((a) => answerText(a, q).toLowerCase() + ' ' + Math.round(q.freqs[a] * 100) + ' %').join(' / ');
+    // Ex. « 50% fold | 50% raise 2,5 ».
+    const mixText = played.map((a) => Math.round(q.freqs[a] * 100) + '% ' + answerText(a, q).toLowerCase()).join(' | ');
     const feedback = $('#drill-feedback');
     feedback.textContent = verdict === 'ok' ? 'Correct !'
       : verdict === 'mix' ? 'Main mixte : ' + mixText
@@ -787,7 +789,7 @@
     });
     $('#drill-next').addEventListener('click', nextDrillQuestion);
     // Petit écran : la grille est masquée pendant le drill ; ce bouton (visible après la réponse)
-    // l'affiche ou la masque, et le choix vaut pour les questions suivantes.
+    // l'affiche à la place de la zone du drill, ou la masque. Chaque question repart sans la grille.
     $('#drill-range').addEventListener('click', () => {
       const shown = document.body.classList.toggle('show-range');
       $('#drill-range').textContent = shown ? 'Masquer la range' : 'Voir la range';
