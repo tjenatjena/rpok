@@ -264,6 +264,7 @@
 
   function renderDrillButtons() {
     $('#drill-next').hidden = true;
+    document.body.classList.remove('drill-answered');
     $('#drill-feedback').textContent = '';
     $('#drill-feedback').className = 'drill-feedback';
     clearDrillFx();
@@ -334,6 +335,7 @@
     if (ok) drillStats.correct++;
     drillSession.push({ q, action, verdict });
     drillAnswered = true;
+    document.body.classList.add('drill-answered');
 
     // Réponses jouées par la stratégie, de la plus fréquente à la moins fréquente.
     const played = q.answers.filter((a) => (q.freqs[a] || 0) > MIX_EPS)
@@ -785,6 +787,12 @@
       if (b && !b.disabled) answerDrill(b.dataset.answer);
     });
     $('#drill-next').addEventListener('click', nextDrillQuestion);
+    // Petit écran : la grille est masquée pendant le drill ; ce bouton (visible après la réponse)
+    // l'affiche ou la masque, et le choix vaut pour les questions suivantes.
+    $('#drill-range').addEventListener('click', () => {
+      const shown = document.body.classList.toggle('show-range');
+      $('#drill-range').textContent = shown ? 'Masquer la range' : 'Voir la range';
+    });
     document.addEventListener('click', () => { $('#drill-menu').hidden = true; });
   }
 

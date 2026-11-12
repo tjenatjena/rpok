@@ -809,6 +809,8 @@
   }
 
   function render() {
+    // Classe utilisée par le CSS (ex. grille masquée pendant le drill sur petit écran).
+    document.body.classList.toggle('drilling', !!state.drill);
     renderPositionsNav();
     renderTable();
     renderProfiles();

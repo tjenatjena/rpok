@@ -556,10 +556,32 @@ main {
   .cell { aspect-ratio: 1; font-size: clamp(7px, 2.6vw, 13px); }
   .panel { width: auto; max-height: none; }
   .table-wrap { flex-direction: column; height: auto; }
-  .profiles-ghost { display: none; }
-  .profiles { width: auto; max-height: none; }
-  .profile-list li { flex: none; }
-  .profile-list button { height: auto; padding: 4px 8px; }
-  .profile-list { flex-direction: row; flex-wrap: wrap; }
-  .profile-list button { width: auto; }
+  /* Pas de menu de profil sur petit écran (le profil reste visible dans le titre et le tapis). */
+  .profiles { display: none; }
+
+  /* Menu Drill sur petit écran : panneau pleine largeur sous le bouton Drill (dans le flux, il
+     pousse la table), modes en accordéon : un tap ouvre les profils du mode juste en dessous. */
+  .drill-menu { position: static; order: -1; flex-basis: 100%; width: 100%; padding: 6px; gap: 4px; }
+  .drill-menu button { font-size: 15px; padding: 10px 12px; min-width: 0; }
+  .drill-item > .drill-mode::after { content: '▾'; transition: transform .15s; }
+  .drill-item.open > .drill-mode::after { transform: rotate(180deg); }
+  .drill-sub {
+    position: static; flex-direction: row; flex-wrap: wrap; gap: 6px;
+    padding: 6px 0 4px; border: 0; background: none; box-shadow: none; white-space: normal;
+  }
+  .drill-sub::before { display: none; }
+  .drill-sub button { flex: 1 1 calc(50% - 3px); text-align: center; }
+  .drill-item:hover > .drill-sub { display: none; }
+  .drill-item.open > .drill-sub { display: flex; }
+  .drill-menu .drill-errors { margin-top: 2px; }
+  /* Drill sur petit écran : pas de place pour la grille, masquée par défaut ; après la réponse,
+     le bouton « Voir la range » l'affiche sous le panneau (les boutons de réponse ne bougent pas). */
+  body.drilling .grid { display: none; order: 2; }
+  body.drilling.drill-answered.show-range .grid { display: grid; }
+  body.drilling.drill-answered .drill-range { display: block; }
+}
+.drill-range {
+  display: none; width: 100%; margin-top: 6px; font: inherit; font-weight: 600; font-size: 13px;
+  padding: 7px; border-radius: 10px; border: 1px solid var(--border);
+  background: transparent; color: var(--text); cursor: pointer;
 }
