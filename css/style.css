@@ -577,6 +577,8 @@ main {
   /* Drill sur petit écran : pas de place pour la grille, masquée par défaut ; après la réponse,
      le bouton « Voir la range » l'affiche sous le panneau (les boutons de réponse ne bougent pas). */
   body.drilling .grid { display: none; order: 2; }
+  /* Positions inutiles pendant le drill (c'est la question qui choisit le héros). */
+  body.drilling .positions button[data-pos] { display: none; }
   body.drilling.drill-answered.show-range .grid { display: grid; }
   body.drilling.drill-answered .drill-range { display: block; }
 }
