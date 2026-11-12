@@ -517,14 +517,24 @@ main {
 .drill-btn:disabled:not(.given):not(.expected) { opacity: .35; }
 .drill-btn.expected { border-color: #fff; }
 .drill-next[hidden] { display: none; }
-.drill-next {
-  width: 100%; margin-top: 8px; font: inherit; font-weight: 700; font-size: 15px;
+/* Ligne « Voir la range » (petit écran) à gauche + « Suivant » à droite, même largeur. */
+.drill-nav { display: flex; gap: 8px; width: 100%; margin-top: 8px; }
+.drill-nav > button { flex: 1 1 0; min-width: 0; }
+.drill-next, .drill-range {
+  font: inherit; font-weight: 700; font-size: 15px;
   padding: 10px; border-radius: 10px; border: 1px solid var(--border);
   background: var(--surface-2); color: var(--text); cursor: pointer; letter-spacing: .5px;
 }
-.drill-next:hover, .drill-next:focus-visible { border-color: var(--muted); }
+.drill-next:hover, .drill-next:focus-visible, .drill-range:hover, .drill-range:focus-visible { border-color: var(--muted); }
 .drill-next::after { content: ' →'; }
-.drill-score { color: var(--muted); font-size: 13px; }
+/* Titre du spot + numéro de la main du drill (« 37/100 ») en haut à droite du panneau. */
+.panel-head { display: flex; align-items: baseline; gap: 10px; margin: 0 0 4px; }
+.panel-head h2 { margin: 0; min-width: 0; }
+.drill-score {
+  margin-left: auto; flex: none; color: var(--muted);
+  font-size: 14px; font-weight: 600; font-variant-numeric: tabular-nums;
+}
+body:not(.drilling) .drill-score { display: none; }
 
 /* Drill : tout l'encadré passe au vert (bonne réponse) ou au rouge (erreur) jusqu'à Suivant. */
 .panel { transition: background-color .25s, border-color .25s, box-shadow .25s; }
@@ -582,8 +592,4 @@ main {
   body.drilling.drill-answered.show-range .grid { display: grid; }
   body.drilling.drill-answered .drill-range { display: block; }
 }
-.drill-range {
-  display: none; width: 100%; margin-top: 6px; font: inherit; font-weight: 600; font-size: 13px;
-  padding: 7px; border-radius: 10px; border: 1px solid var(--border);
-  background: transparent; color: var(--text); cursor: pointer;
-}
+.drill-range { display: none; }

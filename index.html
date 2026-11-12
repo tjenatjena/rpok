@@ -39,7 +39,10 @@
       <div id="grid" class="grid"></div>
 
       <aside class="panel">
-        <h2 id="spot-title"></h2>
+        <div class="panel-head">
+          <h2 id="spot-title"></h2>
+          <span id="drill-score" class="drill-score"></span>
+        </div>
         <p id="spot-sub" class="muted"></p>
         <p id="parse-errors" class="parse-errors" hidden></p>
         <div id="sizing-note" class="sizing-note" hidden></div>
@@ -55,9 +58,10 @@
           </div>
           <div id="drill-feedback" class="drill-feedback"></div>
           <div id="drill-actions" class="drill-actions"></div>
-          <button id="drill-next" class="drill-next" type="button" hidden>Suivant</button>
-          <button id="drill-range" class="drill-range" type="button">Voir la range</button>
-          <div id="drill-score" class="drill-score"></div>
+          <div class="drill-nav">
+            <button id="drill-range" class="drill-range" type="button">Voir la range</button>
+            <button id="drill-next" class="drill-next" type="button" hidden>Suivant</button>
+          </div>
         </div>
       </aside>
     </section>

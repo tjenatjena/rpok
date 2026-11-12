@@ -312,9 +312,8 @@
   }
 
   function renderDrillScore() {
-    $('#drill-score').textContent = 'Main ' + Math.min(drillStats.total + (drillAnswered ? 0 : 1), DRILL_LENGTH) +
-      ' / ' + DRILL_LENGTH + ' · ' + drillStats.correct + ' bonne' + (drillStats.correct > 1 ? 's' : '') + ' réponse' +
-      (drillStats.correct > 1 ? 's' : '');
+    // Numéro de la main en cours sur la série (ex. « 37/100 »), en haut à droite du panneau.
+    $('#drill-score').textContent = Math.min(drillStats.total + (drillAnswered ? 0 : 1), DRILL_LENGTH) + '/' + DRILL_LENGTH;
   }
 
   // Verdict d'une réponse selon la fréquence de la main pour cette réponse : 100 % = juste (vert),
