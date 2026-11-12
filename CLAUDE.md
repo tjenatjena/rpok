@@ -4,7 +4,8 @@ Site statique (HTML/CSS/JS vanilla, sans build) qui affiche des ranges Texas Hol
 S'ouvre directement via `index.html`. Les ranges sont en lecture seule dans l'interface : on ne les modifie que dans le code (`js/ranges.js`).
 
 - `js/ranges.js` : données (ranges par spot, position et profil de table) + couleurs des actions
-- `js/app.js` : parsing de la notation, table 6-max / 9-max, grille 13×13, panneau de stats, switch de format
+- `js/app.js` : parsing de la notation, table 6-max / 9-max, grille 13×13, panneau de stats, switch de format ; expose le cœur dans `window.RPok` (`POSITIONS` et `tableLevel` via des getters) et démarre au `DOMContentLoaded`
+- `js/drill.js` (chargé après `app.js`, pas de modules ES car le site s'ouvre en `file://`) : tout le drill (questions, verdicts, animations, fin de série, journal des erreurs, raccourcis clavier du drill, `rpokSkip(n)` en console pour sauter n mains) ; remplit `RPok.drill`, que `app.js` interroge (`question()`, `answered()`, verrous, `renderPanel()`, `onFormatChange()`)
 - `css/style.css` : style ; l'écran doit tenir sur un portable sans scroll (pas de barre de titre, pas de cartes sur la table)
 
 ## Parcours utilisateur
@@ -21,7 +22,7 @@ S'ouvre directement via `index.html`. Les ranges sont en lecture seule dans l'in
 
 Le bouton Drill ouvre un menu de modes : **ALL** (questions de tous les modes mélangées au hasard), **Open**, **3b** (héros LJ à SB face à un open), **Def BB** (BB face à un open), **Def vs 3b**, **Squeeze**, **Iso** ; chaque mode ouvre un sous-menu (survol ou clic) « Tous profils » + les profils qui ont au moins une range pour ce mode, pour s'entraîner sur un seul profil (ex. Open → vs. reg ; le libellé du bouton devient « Drill · Open · vs. reg ») ; un nouveau clic arrête le drill.
 Le drill ne tire que des positions du format choisi (les opens UTG, UTG1, UTG2 seulement en 9max).
-Chaque question tire au hasard une situation (héros + vilain(s) selon le spot), un profil défini pour ce spot et une main. Les types de question sont dans `DRILL_KINDS` (`js/app.js`) : spot de `RANGES` interrogé, réponses proposées et actions de la range regroupées sous chaque réponse (le reste = fold) :
+Chaque question tire au hasard une situation (héros + vilain(s) selon le spot), un profil défini pour ce spot et une main. Les types de question sont dans `DRILL_KINDS` (`js/drill.js`) : spot de `RANGES` interrogé, réponses proposées et actions de la range regroupées sous chaque réponse (le reste = fold) :
    - Open : Fold / Raise
    - 3b et Def BB (`RANGES.threebet`, BB à part) : Fold / Call / 3bet ; 3bet/5bet all-in et 3b value / linéaire / polarisé comptent comme 3bet ; exception en Def BB : quand le 3bet de la range n'est fait que de 3b liné et/ou 3b pola (BB vs BU, `drillAnswerSet`), chaque variante présente a son bouton (« 3b liné 11 », « 3b pola 13 ») à la place de 3bet
    - Def vs 3b (`RANGES.vs3bet`) : Fold / Call / 4bet ; le 4bet all-in compte comme 4bet, « call si 3b petit » compte comme fold (3bet de taille standard) ; la main n'est tirée que dans la range d'open du héros (même profil, repli sur `gto`) ; l'open du héros reste caché mais compte dans le montant du 3bet et le pot
