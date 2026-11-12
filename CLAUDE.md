@@ -6,7 +6,7 @@ S'ouvre directement via `index.html`. Les ranges sont en lecture seule dans l'in
 - `js/ranges.js` : données (ranges par spot, position et profil de table) + couleurs des actions
 - `js/app.js` : parsing de la notation, table 6-max / 9-max, grille 13×13, panneau de stats, switch de format ; expose le cœur dans `window.RPok` (`POSITIONS` et `tableLevel` via des getters) et démarre au `DOMContentLoaded`
 - `js/drill.js` (chargé après `app.js`, pas de modules ES car le site s'ouvre en `file://`) : tout le drill (questions, verdicts, animations, fin de série, journal des erreurs, raccourcis clavier du drill, `rpokSkip(n)` en console pour sauter n mains) ; remplit `RPok.drill`, que `app.js` interroge (`question()`, `answered()`, verrous, `renderPanel()`, `onFormatChange()`)
-- `css/style.css` : style ; l'écran doit tenir sur un portable sans scroll (pas de barre de titre, pas de cartes sur la table) ; sur petit écran (téléphone, `max-width: 860px` ou `max-height: 480px`) la page défile en colonne, sans menu de profil (ni boutons de position pendant le drill), avec le menu Drill en panneau pleine largeur sous le bouton (modes en accordéon, profils du mode en boutons sur deux colonnes)
+- `css/style.css` : style ; l'écran doit tenir sur un portable sans scroll (pas de barre de titre, pas de cartes sur la table) ; sur petit écran (téléphone, `max-width: 860px` ou `max-height: 480px`) la page défile en colonne, sans menu de profil (ni boutons de position ni switch 9max / 6max pendant le drill), avec le menu Drill en panneau pleine largeur sous le bouton (modes en accordéon, profils du mode en boutons sur deux colonnes)
 
 ## Parcours utilisateur
 

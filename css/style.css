@@ -588,7 +588,7 @@ body:not(.drilling) .drill-score { display: none; }
   /* Drill sur petit écran : pas de place pour la grille, masquée par défaut ; après la réponse,
      le bouton « Voir la range » l'affiche sous le panneau (les boutons de réponse ne bougent pas). */
   /* Positions inutiles pendant le drill (c'est la question qui choisit le héros). */
-  body.drilling .positions button[data-pos] { display: none; }
+  body.drilling .positions button[data-pos], body.drilling .format-switch { display: none; }
   /* La zone du drill (titre, cartes, réponses) a la hauteur d'une grille carrée de la largeur
      du panneau (--stage) ; « Voir la range » pose la grille exactement à sa place, par-dessus,
      sans changer la hauteur, et la ligne Voir la range / Suivant reste en dessous. */
