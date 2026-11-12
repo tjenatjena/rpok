@@ -49,7 +49,7 @@
   // drill : null (mode normal) ou mode choisi dans le menu Drill ('all' ou une clé de DRILL_KINDS).
   // drillProfile : profil imposé par le sous-menu du drill (null = tous les profils).
   // format : '6max' | '9max' (switch en haut à droite), voir FORMATS.
-  const state = { format: '6max', hero: 'LJ', profile: 'gto', hovered: null, villain: {}, drill: null, drillProfile: null, drillHero: null };
+  const state = { format: '6max', hero: 'LJ', profile: 'gto', hovered: null, villain: {}, drill: null, drillProfile: null, drillHero: null, drillVillain: null, drillProfileLock: null };
 
   const posIdx = (pos) => POSITIONS.indexOf(pos);
   const openSize = (pos) => (window.RANGES.open[pos] ? window.RANGES.open[pos].gto.size : 3);
@@ -173,6 +173,43 @@
     aggro: ['aggro'],
     fish: ['fish'],
   };
+  // Notes propres à un couple héros / ouvreur (descriptions des onglets de MC26+W25.rm), par profil :
+  // remplacent les notes 3bet ci-dessus (le tableau de sizing reste affiché).
+  const THREEBET_SPOT_NOTES = {
+    'BB vs BU': {
+      gto: [
+        { title: 'vs. BU reg (Open 42/44%)', lines: [
+          'On utilise 2 strat en fonction du profil',
+          'Polarisé : strat de base avec petit coeur de range en call pour board coverage',
+          'Linéaire : vs vilain qui défendent beaucoup',
+        ] },
+      ],
+      aggro: [
+        { title: 'vs. BU aggro (gros 4betteur : open 44%+ &amp; 4b++)', lines: [
+          'Polarisé',
+          'Ne pas 3bet fold des équités fortes',
+          'Objectif crush la range d\'open',
+        ] },
+        { title: 'vs. BU aggro (CS)', lines: ['Linéaire'] },
+      ],
+      fish: [
+        { title: 'vs. BU passif :', lines: [
+          'Linéaire',
+          'Mergé vs vilain CS',
+          'Objectif value',
+          'Peu de risque de 3b/fold de l\'équité',
+        ] },
+      ],
+      nit: [
+        { title: 'vs. BU nit (Open 40%- &amp; F3b 70%+)', lines: [
+          'Polarisée',
+          'Top + trash',
+          'Objectif faire fold vilain',
+          'vs. range tight = déf de SC',
+        ] },
+      ],
+    },
+  };
 
   // Notes iso sur limp (voir notes perso) : identiques pour tous les spots d'iso.
   const ISO_FUNDAMENTALS = [
@@ -216,6 +253,11 @@
   }
 
   function threebetNotesHtml(cur) {
+    const spotNotes = THREEBET_SPOT_NOTES[state.hero + ' vs ' + cur.villain];
+    if (spotNotes) {
+      return (spotNotes[cur.profile] || []).map((g, i) =>
+        '<h4' + (i === 0 ? ' class="gap"' : '') + '>' + g.title + '</h4>' + list(g.lines)).join('');
+    }
     let html = '<h3>Notes 3bet</h3>' + list((THREEBET_POS_NOTES[state.hero] || []).concat(THREEBET_GENERAL_NOTES));
     (THREEBET_NOTES_BY_PROFILE[cur.profile] || []).forEach((k) => {
       const n = THREEBET_PROFILE_NOTES[k];
@@ -380,7 +422,11 @@
         '<div class="tag"></div>';
       seat.addEventListener('click', (e) => {
         e.stopPropagation();
-        if (state.drill) { if (pos === state.hero) toggleDrillLock(); return; }
+        if (state.drill) {
+          if (pos === state.hero) toggleDrillLock();
+          else if (drillQuestionVillains().includes(pos)) toggleDrillVillainLock();
+          return;
+        }
         toggleMenu(pos);
       });
       tableEl.appendChild(seat);
@@ -453,10 +499,15 @@
       seat.style.left = x + '%';
       seat.style.top = y + '%';
       seat.classList.toggle('hero', isHero);
-      seat.classList.toggle('locked', isHero && !!state.drill && state.drillHero === pos);
-      seat.classList.toggle('lockable', isHero && !!state.drill);
+      // Drill : le siège du héros et ceux des vilains de la question se verrouillent au clic.
+      const isQVillain = !isHero && !!state.drill && drillQuestionVillains().includes(pos);
+      const heroLocked = isHero && !!state.drill && state.drillHero === pos;
+      const villainLocked = isQVillain && state.drillVillain === drillQuestion.villain;
+      seat.classList.toggle('locked', heroLocked || villainLocked);
+      seat.classList.toggle('lockable', (isHero && !!state.drill) || isQVillain);
       seat.title = isHero && state.drill
-        ? (state.drillHero ? 'Déverrouiller la position' : 'Verrouiller le drill sur cette position') : '';
+        ? (state.drillHero ? 'Déverrouiller la position du héros' : 'Verrouiller le drill sur cette position du héros')
+        : isQVillain ? (state.drillVillain ? 'Déverrouiller la position du vilain' : 'Verrouiller le drill sur ce vilain') : '';
       seat.classList.toggle('folded', folded);
       seat.querySelector('.stack').textContent = fmt(100 - bet - hiddenOpen) + ' BB';
 
@@ -743,17 +794,36 @@
     squeeze: { spot: 'squeeze', answers: ['fold', 'call', 'squeeze'], groups: { squeeze: ['squeeze'], call: ['call'] } },
     iso: { spot: 'iso', answers: ['fold', 'iso'], groups: { iso: ['iso', 'large'] } },
   };
+  // Def BB : quand le 3bet de la range n'est fait que de 3b liné et/ou 3b pola (ex. BB vs BU),
+  // chaque variante présente a son propre bouton au lieu d'un « 3bet » unique.
+  const BB_SPLIT_3BET = ['3blin', '3bpol'];
+  function drillAnswerSet(kind, spot) {
+    const cfg = DRILL_KINDS[kind];
+    if (kind === 'bbdef') {
+      const threebets = THREEBET_ACTIONS.filter((a) => spot.actions[a]);
+      if (threebets.length && threebets.every((a) => BB_SPLIT_3BET.includes(a))) {
+        return {
+          answers: ['fold', 'call'].concat(threebets),
+          groups: Object.assign({ call: ['call'] }, ...threebets.map((a) => ({ [a]: [a] }))),
+        };
+      }
+    }
+    return { answers: cfg.answers, groups: cfg.groups };
+  }
   const pick = (arr) => arr[Math.floor(Math.random() * arr.length)];
 
-  // Libellé d'une réponse : BB face à un limp ne folde pas, il checke.
-  const answerLabel = (a, q) => (a === 'fold' && q.kind === 'iso' && q.hero === 'BB' ? 'Check' : window.ACTIONS[a].label);
+  // Libellé d'une réponse : BB face à un limp ne folde pas, il checke ; libellés courts pour les
+  // variantes de 3bet de la BB.
+  const DRILL_ANSWER_LABELS = { '3blin': '3b liné', '3bpol': '3b pola' };
+  const answerLabel = (a, q) => (a === 'fold' && q.kind === 'iso' && q.hero === 'BB' ? 'Check'
+    : DRILL_ANSWER_LABELS[a] || window.ACTIONS[a].label);
 
   // Libellé avec le sizing de la relance (ex. « Raise 2,5 ») : taille propre à l'action (champ
   // « sizes » du spot) sinon « size », pour chaque action de la range regroupée sous la réponse ;
   // deux tailles sont listées (ex. iso BB vs SB « 4 / 7 »), trois ou plus en fourchette (« 11–13 »),
   // le 4bet all-in ajoute « AI ».
   function answerSizing(a, q) {
-    const acts = (DRILL_KINDS[q.kind].groups[a] || []).filter((x) => q.spot.actions[x]);
+    const acts = (q.groups[a] || []).filter((x) => q.spot.actions[x]);
     if (a === 'call' || !acts.length) return '';
     let sizes = [...new Set(acts.filter((x) => x !== 'jam')
       .map((x) => (q.spot.sizes && q.spot.sizes[x]) || q.spot.size))].sort((x, y) => x - y);
@@ -794,7 +864,13 @@
       (!s.villain || s.villain.split('+').every((v) => POSITIONS.includes(v))));
   }
 
+  // Un drill dure DRILL_LENGTH mains ; à la fin, une fenêtre donne le score et les erreurs.
+  const DRILL_LENGTH = 100;
   let drillStats = { correct: 0, total: 0 };
+  // Réponses de la série en cours : { q, action, verdict } (verdict de drillVerdict).
+  let drillSession = [];
+  // Résultat de la dernière série terminée (réaffichable depuis le menu Drill).
+  let lastDrillResult = null;
   let drillQuestion = null;
   // true une fois la question courante répondue : affiche alors toute la range de l'exercice.
   let drillAnswered = false;
@@ -846,12 +922,14 @@
   }
 
   // Situations d'un type de question restreintes au profil choisi dans le sous-menu (null = tous
-  // les profils) et à la position du héros verrouillée en cliquant sur son siège (state.drillHero,
-  // null = toutes).
+  // les profils), à la position du héros verrouillée en cliquant sur son siège (state.drillHero,
+  // null = toutes) et au vilain verrouillé en cliquant sur le sien (state.drillVillain, même format
+  // que la question : position, ou « ouvreur+caller » pour le squeeze ; null = tous).
   // profileIds : profils acceptés (null = tous), voir drillProfileIds.
-  function drillSituationsFor(kind, profileIds, hero = state.drillHero) {
+  function drillSituationsFor(kind, profileIds, hero = state.drillHero, villain = state.drillVillain) {
     return drillSituations(kind).filter((s) =>
-      (!profileIds || profileIds.some((id) => s.byProfile[id])) && (!hero || s.hero === hero));
+      (!profileIds || profileIds.some((id) => s.byProfile[id])) && (!hero || s.hero === hero) &&
+      (!villain || s.villain === villain));
   }
 
   // Profils couverts par le choix du sous-menu (null = tous les profils).
@@ -864,23 +942,48 @@
     renderTable();
   }
 
+  // Positions des vilains de la question en cours (ouvreur et caller pour le squeeze).
+  const drillQuestionVillains = () => (drillQuestion && drillQuestion.villain ? drillQuestion.villain.split('+') : []);
+
+  // Clic sur le siège d'un vilain de la question pendant le drill : verrouille / déverrouille le
+  // vilain (les deux sièges ensemble pour le squeeze). Combinable avec le verrou du héros, ex.
+  // BB vs BU ; le verrou s'applique aux questions suivantes (l'open n'a pas de vilain, il en sort).
+  function toggleDrillVillainLock() {
+    state.drillVillain = state.drillVillain ? null : drillQuestion.villain;
+    renderTable();
+  }
+
+  // Clic sur le profil actif pendant le drill : verrouille / déverrouille le profil (sans effet si
+  // le sous-menu du drill impose déjà un profil, alors affiché verrouillé).
+  function toggleDrillProfileLock() {
+    if (state.drillProfile) return;
+    state.drillProfileLock = state.drillProfileLock ? null : drillQuestion.profile;
+    renderProfiles();
+  }
+
   // Types de question d'un mode du menu ('all' = tous).
   const drillKinds = (mode) => (mode === 'all' ? Object.keys(DRILL_KINDS) : [mode]);
 
   // Profils proposés dans le sous-menu d'un mode : ceux qui ont au moins une range interrogeable.
   function drillProfiles(mode) {
-    return PROFILES.filter((p) => drillKinds(mode).some((k) => drillSituationsFor(k, drillProfileIds(p.id), null).length));
+    return PROFILES.filter((p) => drillKinds(mode).some((k) => drillSituationsFor(k, drillProfileIds(p.id), null, null).length));
   }
 
   function newDrillQuestion() {
-    const ids = drillProfileIds(state.drillProfile);
-    const kinds = drillKinds(state.drill).filter((k) => drillSituationsFor(k, ids).length);
+    let ids = drillProfileIds(state.drillProfile || state.drillProfileLock);
+    let kinds = drillKinds(state.drill).filter((k) => drillSituationsFor(k, ids).length);
+    // Verrous devenus impossibles à satisfaire (ex. changement de format) : on les libère.
+    if (!kinds.length) {
+      state.drillHero = state.drillVillain = state.drillProfileLock = null;
+      ids = drillProfileIds(state.drillProfile);
+      kinds = drillKinds(state.drill).filter((k) => drillSituationsFor(k, ids).length);
+    }
     const kind = pick(kinds);
     const { hero, villain, byProfile } = pick(drillSituationsFor(kind, ids));
     const profile = pick(PROFILES.map((p) => p.id).filter((id) => byProfile[id] && (!ids || ids.includes(id))));
     const strat = buildStrategy(byProfile[profile]);
     // Fréquences par réponse proposée (actions de la range regroupées, voir DRILL_KINDS).
-    const { groups } = DRILL_KINDS[kind];
+    const { answers, groups } = drillAnswerSet(kind, byProfile[profile]);
     const freqsOf = (h) => {
       const out = {};
       Object.entries(groups).forEach(([answer, acts]) => { out[answer] = acts.reduce((t, a) => t + (strat[h][a] || 0), 0); });
@@ -903,7 +1006,7 @@
     state.hero = hero;
     state.profile = profile;
     state.villain = drillVillains(kind, villain);
-    drillQuestion = { kind, villain, hero, profile, hand, correct, freqs: withFoldFreq(freqs), spot: byProfile[profile], mix: strat[hand] };
+    drillQuestion = { kind, villain, hero, profile, hand, correct, answers, groups, freqs: withFoldFreq(freqs), spot: byProfile[profile], mix: strat[hand] };
     drillAnswered = false;
     renderDrillButtons();
   }
@@ -919,15 +1022,15 @@
     $('#drill-feedback').textContent = '';
     $('#drill-feedback').className = 'drill-feedback';
     clearDrillFx();
-    const cls = { '3bet': 'threebet', '4bet': 'fourbet' };
-    $('#drill-actions').innerHTML = DRILL_KINDS[drillQuestion.kind].answers.map((a) =>
+    const cls = { '3bet': 'threebet', '4bet': 'fourbet', '3blin': 'threebet-lin', '3bpol': 'threebet-pol' };
+    $('#drill-actions').innerHTML = drillQuestion.answers.map((a) =>
       '<button class="drill-btn ' + (cls[a] || a) + '" type="button" data-answer="' + a + '">' +
       answerLabel(a, drillQuestion).toUpperCase() +
       (answerSizing(a, drillQuestion) ? ' <span class="sz">' + answerSizing(a, drillQuestion) + '</span>' : '') +
       '</button>').join('');
   }
 
-  const SUITS = [{ s: '♠', color: 'black' }, { s: '♥', color: 'red' }, { s: '♦', color: 'red' }, { s: '♣', color: 'black' }];
+  const SUITS = [{ s: '♠', color: 'black' }, { s: '♥', color: 'red' }, { s: '♦', color: 'blue' }, { s: '♣', color: 'green' }];
 
   function randomSuits(n) {
     const idx = [0, 1, 2, 3];
@@ -958,12 +1061,14 @@
     drillCards(drillQuestion.hand).forEach((c, i) => {
       const el = $('#drill-card-' + (i + 1));
       el.textContent = c.r + c.suit.s;
-      el.classList.toggle('red', c.suit.color === 'red');
+      ['red', 'blue', 'green'].forEach((k) => el.classList.toggle(k, c.suit.color === k));
     });
   }
 
   function renderDrillScore() {
-    $('#drill-score').textContent = drillStats.correct + ' / ' + drillStats.total + ' bonnes réponses';
+    $('#drill-score').textContent = 'Main ' + Math.min(drillStats.total + (drillAnswered ? 0 : 1), DRILL_LENGTH) +
+      ' / ' + DRILL_LENGTH + ' · ' + drillStats.correct + ' bonne' + (drillStats.correct > 1 ? 's' : '') + ' réponse' +
+      (drillStats.correct > 1 ? 's' : '');
   }
 
   // Verdict d'une réponse selon la fréquence de la main pour cette réponse : 100 % = juste (vert),
@@ -982,10 +1087,11 @@
     recordDrillAnswer(q, action, ok);
     drillStats.total++;
     if (ok) drillStats.correct++;
+    drillSession.push({ q, action, verdict });
     drillAnswered = true;
 
     // Réponses jouées par la stratégie, de la plus fréquente à la moins fréquente.
-    const played = DRILL_KINDS[q.kind].answers.filter((a) => (q.freqs[a] || 0) > MIX_EPS)
+    const played = q.answers.filter((a) => (q.freqs[a] || 0) > MIX_EPS)
       .sort((a, b) => q.freqs[b] - q.freqs[a]);
     const mixText = played.map((a) => answerText(a, q).toLowerCase() + ' ' + Math.round(q.freqs[a] * 100) + ' %').join(' / ');
     const feedback = $('#drill-feedback');
@@ -1003,8 +1109,10 @@
     $('.panel').classList.add('drill-' + verdict);
     renderGrid();
     renderDrillScore();
-    // L'utilisateur passe lui-même à la question suivante (bouton Suivant, Entrée ou Espace).
+    // L'utilisateur passe lui-même à la question suivante (bouton Suivant, Entrée ou Espace) ;
+    // après la dernière main de la série, le bouton ouvre les résultats.
     const next = $('#drill-next');
+    next.textContent = drillStats.total >= DRILL_LENGTH ? 'Résultats' : 'Suivant';
     next.hidden = false;
     next.focus();
   }
@@ -1022,7 +1130,7 @@
   // main joue le plus (ex. 3b polarisé 13 plutôt que linéaire 11), « AI » pour le 4bet all-in.
   function answerAmount(a, q) {
     if (a === 'call') return fmt(tableLevel);
-    const acts = (DRILL_KINDS[q.kind].groups[a] || []).filter((x) => q.spot.actions[x]);
+    const acts = (q.groups[a] || []).filter((x) => q.spot.actions[x]);
     if (!acts.length) return fmt(q.spot.size);
     const best = acts.reduce((x, y) => ((q.mix[y] || 0) > (q.mix[x] || 0) ? y : x));
     if (best === 'jam') return 'AI';
@@ -1063,8 +1171,95 @@
 
   function nextDrillQuestion() {
     if (!state.drill || !drillAnswered) return;
+    if (drillStats.total >= DRILL_LENGTH) { finishDrill(); return; }
     newDrillQuestion();
     render();
+  }
+
+  /* ---------- Fin de série : score et erreurs ---------- */
+
+  // Fin des DRILL_LENGTH mains : mémorise le résultat, arrête le drill et ouvre la fenêtre.
+  function finishDrill() {
+    lastDrillResult = { mode: state.drill, profile: state.drillProfile, answers: drillSession };
+    $('#drill-menu .drill-last').hidden = false;
+    setDrill(null);
+    openResults();
+  }
+
+  function openResults() {
+    if (!lastDrillResult) return;
+    $('#drill-menu').hidden = true;
+    closeDrillSubmenus();
+    renderResults();
+    $('#results-modal').hidden = false;
+  }
+
+  function closeResults() {
+    $('#results-modal').hidden = true;
+  }
+
+  function renderResults() {
+    const { mode, profile, answers } = lastDrillResult;
+    const n = answers.length;
+    const count = (v) => answers.filter((a) => a.verdict === v).length;
+    const ok = count('ok'), mix = count('mix'), ko = count('ko');
+    $('#results-title').textContent = 'Résultat · ' + DRILL_MODES.find((m) => m.id === mode).label +
+      (profile ? ' · ' + profileOf(profile).label : '');
+
+    // Score par thème (seulement si la série mélange plusieurs types de question).
+    const byKind = {};
+    answers.forEach(({ q, verdict }) => {
+      const k = byKind[q.kind] || (byKind[q.kind] = { n: 0, ok: 0 });
+      k.n++;
+      if (verdict !== 'ko') k.ok++;
+    });
+    const kindRows = Object.keys(byKind).length > 1
+      ? DRILL_MODES.filter((m) => byKind[m.id]).map((m) => '<tr><td>' + m.label + '</td>' +
+        '<td class="num">' + byKind[m.id].ok + ' / ' + byKind[m.id].n + '</td>' +
+        '<td class="num">' + pct(byKind[m.id].ok, byKind[m.id].n) + '</td></tr>').join('')
+      : '';
+
+    // Erreurs dans l'ordre de la série, avec la stratégie de la main.
+    const errorRows = answers.map((a, i) => Object.assign({ i }, a)).filter((a) => a.verdict === 'ko')
+      .map(({ i, q, action }) => {
+        const strat = q.answers.filter((x) => (q.freqs[x] || 0) > MIX_EPS)
+          .sort((x, y) => q.freqs[y] - q.freqs[x])
+          .map((x) => answerLabel(x, q) + (q.freqs[x] < 1 - MIX_EPS ? ' ' + Math.round(q.freqs[x] * 100) + ' %' : ''))
+          .join(' / ');
+        const key = [q.kind, q.hero, q.villain || '', q.profile, q.hand].join('|');
+        return '<tr class="errors-hand" data-key="' + key + '"><td class="num muted">' + (i + 1) + '</td>' +
+          '<td class="hand">' + q.hand + '</td><td>' + drillSpotLabel(q) + ' ' + profileBadge(q.profile) + '</td>' +
+          '<td>' + answerLabel(action, q) + '</td><td>' + strat + '</td></tr>';
+      }).join('');
+
+    const score = n ? Math.round(((ok + mix) / n) * 100) : 0;
+    $('#results-body').innerHTML =
+      '<div class="results-score ' + (score >= 90 ? 'good' : score >= 75 ? 'fair' : 'bad') + '">' + score + ' %</div>' +
+      '<p class="results-summary"><b>' + (ok + mix) + '</b> bonnes réponses sur <b>' + n + '</b>' +
+      (mix ? ' <span class="muted">(dont ' + mix + ' sur une main mixte)</span>' : '') +
+      ' · <b>' + ko + '</b> erreur' + (ko > 1 ? 's' : '') + '</p>' +
+      (kindRows ? '<h3>Score par thème</h3><table class="errors-table"><thead><tr><th>Thème</th>' +
+        '<th class="num">Justes</th><th class="num">Score</th></tr></thead><tbody>' + kindRows + '</tbody></table>' : '') +
+      (errorRows
+        ? '<h3>Erreurs <span class="muted">(clic : voir la range)</span></h3><table class="errors-table"><thead><tr>' +
+          '<th class="num">#</th><th>Main</th><th>Spot</th><th>Ta réponse</th><th>Stratégie</th></tr></thead><tbody>' +
+          errorRows + '</tbody></table>'
+        : '<p class="muted">Aucune erreur, bravo !</p>');
+  }
+
+  function bindResults() {
+    $('#results-close').addEventListener('click', closeResults);
+    $('#results-modal').addEventListener('click', (e) => { if (e.target.id === 'results-modal') closeResults(); });
+    $('#results-body').addEventListener('click', (e) => {
+      const row = e.target.closest('.errors-hand');
+      if (!row) return;
+      closeResults();
+      showErrorHand(row.dataset.key);
+    });
+    $('#results-again').addEventListener('click', () => {
+      closeResults();
+      setDrill(lastDrillResult.mode, lastDrillResult.profile);
+    });
   }
 
   // Bouton Drill : ouvre le menu des modes, ou arrête le drill en cours.
@@ -1080,6 +1275,8 @@
     state.drill = mode;
     state.drillProfile = mode ? profile : null;
     state.drillHero = null;
+    state.drillVillain = null;
+    state.drillProfileLock = null;
     $('#drill-menu').hidden = true;
     closeDrillSubmenus();
     clearDrillFx();
@@ -1092,6 +1289,7 @@
     $('#drill-feedback').className = 'drill-feedback';
     if (mode) {
       drillStats = { correct: 0, total: 0 };
+      drillSession = [];
       newDrillQuestion();
     } else {
       drillQuestion = null;
@@ -1135,6 +1333,10 @@
       item.append(head, sub);
       menu.appendChild(item);
     });
+    const last = button('Dernier résultat', openResults);
+    last.className = 'drill-errors drill-last';
+    last.hidden = true;
+    menu.appendChild(last);
     const errors = button('Erreurs', openErrors);
     errors.className = 'drill-errors';
     menu.appendChild(errors);
@@ -1449,8 +1651,12 @@
       b.type = 'button';
       b.style.setProperty('--pc', color);
       b.textContent = label;
-      b.addEventListener('click', () => selectProfile(id));
-      li.appendChild(b);
+      b.addEventListener('click', () => (state.drill ? toggleDrillProfileLock() : selectProfile(id)));
+      const lock = document.createElement('span');
+      lock.className = 'lock';
+      lock.setAttribute('aria-hidden', 'true');
+      lock.innerHTML = LOCK_SVG;
+      li.append(b, lock);
       list.appendChild(li);
       profileEls[id] = b;
     });
@@ -1459,20 +1665,40 @@
   function renderProfiles() {
     const { profile, profiles } = currentSpot();
     PROFILES.forEach(({ id }) => {
-      profileEls[id].classList.toggle('active', id === profile);
-      profileEls[id].parentElement.hidden = !profiles.includes(id);
-      profileEls[id].disabled = state.drill;
+      const b = profileEls[id];
+      const active = id === profile;
+      b.classList.toggle('active', active);
+      b.parentElement.hidden = !profiles.includes(id);
+      // Drill : seul le profil actif est cliquable, pour le verrouiller (cadenas à droite).
+      const lockable = !!state.drill && active && !state.drillProfile;
+      b.disabled = !!state.drill && !lockable;
+      b.classList.toggle('lockable', lockable);
+      b.parentElement.classList.toggle('locked', !!state.drill && active && !!(state.drillProfile || state.drillProfileLock));
+      b.title = !state.drill ? '' : state.drillProfile && active ? 'Profil imposé par le menu du drill'
+        : lockable ? (state.drillProfileLock ? 'Déverrouiller le profil' : 'Verrouiller le drill sur ce profil') : '';
     });
   }
 
   function bindKeys() {
     document.addEventListener('keydown', (e) => {
-      if (e.key === 'Escape') { $('#drill-menu').hidden = true; closeErrors(); }
+      if (e.key === 'Escape') { $('#drill-menu').hidden = true; closeErrors(); closeResults(); }
       if (state.drill) {
         if (e.key === 'Escape') hideMenu();
         if ((e.key === 'Enter' || e.key === ' ') && drillAnswered && $('#errors-modal').hidden) {
           e.preventDefault();
           nextDrillQuestion();
+        }
+        // Raccourcis de réponse : F = fold (check de la BB sur l'iso), C = call, R = relance (raise / 3bet / 4bet / squeeze / iso ;
+        // la première proposée, donc le 3b liné quand la BB a deux variantes), L = 3b liné, P = 3b pola.
+        const key = e.key.toLowerCase();
+        if (['f', 'c', 'r', 'l', 'p'].includes(key) && !drillAnswered && !e.repeat && !e.ctrlKey && !e.metaKey && !e.altKey
+          && $('#errors-modal').hidden) {
+          const btn = [...document.querySelectorAll('#drill-actions .drill-btn')].find((b) => {
+            const a = b.dataset.answer;
+            return key === 'f' ? a === 'fold' : key === 'c' ? a === 'call' : key === 'l' ? a === '3blin'
+              : key === 'p' ? a === '3bpol' : a !== 'fold' && a !== 'call';
+          });
+          if (btn && !btn.disabled) { e.preventDefault(); answerDrill(btn.dataset.answer); }
         }
         return;
       }
@@ -1503,6 +1729,7 @@
     state.villain = {};
     if (!POSITIONS.includes(state.hero)) state.hero = POSITIONS[0];
     if (state.drillHero && !POSITIONS.includes(state.drillHero)) state.drillHero = null;
+    if (state.drillVillain && !state.drillVillain.split('+').every((v) => POSITIONS.includes(v))) state.drillVillain = null;
     hideMenu();
     buildPositions($('#positions'));
     buildTable();
@@ -1543,8 +1770,28 @@
   buildProfiles();
   buildDrillMenu();
   bindErrors();
+  bindResults();
   bindFormatSwitch();
   buildGrid();
   bindKeys();
   selectHero(state.hero);
+
+  // Debug (console) : rpokSkip(99) joue n mains au hasard dans le drill en cours (sans les
+  // enregistrer dans le journal des erreurs) pour arriver directement près de la fin de série.
+  window.rpokSkip = (n = DRILL_LENGTH - 1) => {
+    if (!state.drill) return 'Lance d\'abord un drill.';
+    n = Math.min(n, DRILL_LENGTH - 1 - drillStats.total);
+    for (let i = 0; i < n; i++) {
+      if (i || drillAnswered) newDrillQuestion();
+      const q = drillQuestion;
+      const action = pick(q.answers);
+      const verdict = drillVerdict(q, action);
+      drillStats.total++;
+      if (verdict !== 'ko') drillStats.correct++;
+      drillSession.push({ q, action, verdict });
+    }
+    newDrillQuestion();
+    render();
+    return drillStats.total + ' mains jouées.';
+  };
 })();

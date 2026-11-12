@@ -155,6 +155,14 @@ main {
 .errors-hand { cursor: pointer; }
 .errors-hand:hover td { background: var(--surface-2); }
 .modal-foot { display: flex; justify-content: flex-end; }
+
+/* Fenêtre de fin de série du drill (score + erreurs). */
+.drill-menu .drill-last + .drill-errors { margin-top: 0; }
+.results-score { font-size: 44px; font-weight: 800; line-height: 1; text-align: center; font-variant-numeric: tabular-nums; }
+.results-score.good { color: #3fa96b; }
+.results-score.fair { color: #e0b03f; }
+.results-score.bad { color: #e0523f; }
+.results-summary { margin: 6px 0 0; text-align: center; }
 .modal-foot button:hover { border-color: var(--accent); color: var(--accent); }
 
 /* ---------- Profil de la table ---------- */
@@ -180,7 +188,7 @@ main {
   min-height: 0; flex: 0 1 auto;
 }
 /* Les boutons rétrécissent ensemble quand la liste est plus haute que la place disponible. */
-.profile-list li { flex: 0 1 26px; min-height: 0; display: flex; }
+.profile-list li { flex: 0 1 26px; min-height: 0; display: flex; position: relative; }
 .profile-list li[hidden] { display: none; }
 /* --pc : couleur du profil, posée par js/app.js (PROFILES). */
 .profile-list button {
@@ -192,6 +200,9 @@ main {
 }
 .profile-list button:hover { opacity: .8; }
 .profile-list button.active { opacity: 1; border-color: #fff; }
+.profile-list button:disabled { cursor: default; }
+.profile-list button:disabled:not(.active):hover { opacity: .5; }
+.profile-list button.active:disabled { cursor: default; }
 
 .profile-badge {
   display: inline-block; vertical-align: middle; margin-left: 6px;
@@ -306,15 +317,16 @@ main {
 }
 .seat.folded .plate { opacity: .45; }
 
-/* Drill : le siège héros devient cliquable pour verrouiller sa position (cadenas en haut à droite). */
-.seat.hero.lockable { cursor: pointer; }
-.plate .lock {
+/* Drill : les sièges du héros et des vilains de la question deviennent cliquables pour verrouiller
+   leur position (cadenas en haut à droite). */
+.seat.lockable { cursor: pointer; }
+.plate .lock, .profile-list .lock {
   display: none; position: absolute; top: -7px; right: -7px;
   width: 18px; height: 18px; border-radius: 50%;
   align-items: center; justify-content: center;
   background: var(--accent); color: #fff; box-shadow: 0 1px 4px rgba(0,0,0,.5);
 }
-.seat.locked .plate .lock { display: flex; }
+.seat.locked .plate .lock, .profile-list li.locked .lock { display: flex; }
 
 .tag {
   position: absolute; top: 100%; margin-top: .25em; white-space: nowrap;
@@ -474,22 +486,30 @@ main {
   border: 1px solid rgba(0,0,0,.15);
 }
 .drill-card.red { color: #d32f2f; }
+.drill-card.blue { color: #1565c0; }
+.drill-card.green { color: #2e7d32; }
 .drill-feedback { min-height: 20px; font-weight: 700; font-size: 14px; text-align: center; }
 .drill-feedback.correct { color: #3fa96b; }
 .drill-feedback.wrong { color: #e0523f; }
 .drill-actions { display: flex; gap: 12px; width: 100%; }
 .drill-btn {
-  flex: 1; font: inherit; font-weight: 700; font-size: 15px;
+  flex: 1; min-width: 0; font: inherit; font-weight: 700; font-size: 15px;
   padding: 12px; border-radius: 10px; border: 2px solid transparent;
   cursor: pointer; letter-spacing: .5px; color: #fff;
   transition: filter .15s;
 }
 .drill-btn:hover:not(:disabled) { filter: brightness(1.15); }
 .drill-btn .sz { white-space: nowrap; }
+/* Quatre réponses (Def BB avec 3b liné et 3b pola) : grille 2×2 (Fold / Call au-dessus, relances
+   en dessous), boutons moins hauts pour garder l'écran sans scroll. */
+.drill-actions:has(> .drill-btn:nth-child(4)) { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.drill-actions:has(> .drill-btn:nth-child(4)) .drill-btn { padding: 8px; }
 .drill-btn:disabled { cursor: default; opacity: .7; }
 .drill-btn.fold { background: #2f3a48; }
 .drill-btn.raise, .drill-btn.threebet { background: #e3b31b; color: #1d232b; }
 .drill-btn.call { background: #3fa96b; }
+.drill-btn.threebet-lin { background: #e3b31b; color: #1d232b; }
+.drill-btn.threebet-pol { background: #c39bd3; color: #1d232b; }
 .drill-btn.fourbet { background: #e0523f; }
 .drill-btn.squeeze { background: #d93b3b; }
 .drill-btn.iso { background: #9b1c1c; }

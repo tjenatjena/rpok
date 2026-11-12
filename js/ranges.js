@@ -769,36 +769,47 @@ window.RANGES = {
           },
         },
       },
+      // Repris de MC26+W25.rm (catégorie BB, onglets « vs. BU ») : 3b polarisé à 13bb, 3b linéaire
+      // à 11bb ; une main à 50 % dans les deux est jouée moitié pola, moitié liné.
       BU: {
         gto: {
-          size: 12,
+          size: 11,
           sizes: { '3blin': 11, '3bpol': 13 },
           actions: {
-            '3bvalue': '99+, AJs+, KJs+, JTs, T9s, AJo+, KQo',
-            '3blin':   '88, ATs, KTs, QJs, 98s, 87s, KJo',
-            '3bpol':   'A5s, K2s, Q2s, J5s, T6s, 65s, 54s, A4o-A3o',
-            call:      '77-22, A9s-A6s, A4s-A2s, K9s-K3s, QTs-Q3s, J9s-J6s, T8s-T7s, 97s-96s, 86s, 76s-75s, 64s, 53s, 43s, ATo-A5o, KTo-K9o, QJo-QTo, JTo',
+            '3bpol': '99+:0.5, AJs+:0.5, KJs+:0.5, JTs:0.5, T9s:0.5, AJo+:0.5, KQo:0.5, ' +
+                     'A5s, K2s, Q2s, J5s, T6s, 65s, 54s, A4o-A3o',
+            '3blin': '99+:0.5, AJs+:0.5, KJs+:0.5, JTs:0.5, T9s:0.5, AJo+:0.5, KQo:0.5, ' +
+                     '88, ATs, KTs, QJs, 98s, 87s, KJo',
+            call:    '77-22, A9s-A6s, A4s-A2s, K9s-K3s, QTs-Q3s, J9s-J6s, T8s-T7s, 97s-96s, 86s-85s, 76s-75s, 64s, 53s, 43s, ' +
+                     'ATo-A5o, KTo-K9o, QJo-QTo, JTo',
           },
         },
         aggro: {
-          size: 12,
+          size: 11,
+          sizes: { '3blin': 11, '3bpol': 13 },
           actions: {
-            '3bet': '99+, AQs+, A5s-A4s, T9s, 98s, 87s, 76s, 65s, 54s, AQo+',
-            call:   '88-22, AJs-A6s, A3s-A2s, K2s+, Q2s+, J6s+, T8s-T7s, 97s, 86s, 75s, 64s, 53s, 43s, AJo-A3o, K9o+, QTo+, JTo',
+            '3bpol': '99+:0.5, AQs+:0.5, T9s:0.5, 98s:0.5, 87s:0.5, AQo+:0.5, ' +
+                     'A5s-A4s, 76s, 65s, 54s',
+            '3blin': '99+:0.5, AQs+:0.5, T9s:0.5, 98s:0.5, 87s:0.5, AQo+:0.5, ' +
+                     '88, AJs-ATs, KTs+, QJs, JTs, AJo, KJo+',
+            call:    '77-22, A9s-A6s, A3s-A2s, K9s-K3s, QTs-Q4s, J9s-J6s, T8s-T7s, 97s, 86s, 75s, 64s, ATo-A8o, KTo, QJo-QTo, JTo',
           },
         },
         fish: {
-          size: 12,
+          size: 11,
+          sizes: { '3blin': 11 },
           actions: {
-            '3bet': '77+, A9s+, KTs+, QTs+, JTs, T9s, AJo+, KJo+, K9s:0.5, J9s:0.5, T8s:0.5, 98s:0.5, 87s:0.5',
-            call:   '66-22, A8s-A2s, K9s:0.5, K8s-K2s, Q9s-Q2s, J9s:0.5, J8s-J5s, T8s:0.5, T7s-T6s, 98s:0.5, 97s-96s, 87s:0.5, 86s, 76s-75s, 65s-64s, 54s-53s, 43s, ATo-A3o, KTo-K9o, QJo-QTo, JTo',
+            '3blin': '77+, A9s+, KTs+, QTs+, JTs, T9s, AJo+, KJo+, J9s:0.5, T8s:0.5, 98s:0.5, 87s:0.5',
+            call:    '66-22, A8s-A2s, K9s-K2s, Q9s-Q2s, J9s:0.5, J8s-J5s, T8s:0.5, T7s-T6s, 98s:0.5, 97s-96s, 87s:0.5, 86s-85s, ' +
+                     '76s-75s, 65s-64s, 54s-53s, 43s, ATo-A3o, KTo-K9o, QJo-Q9o, JTo-J9o, T9o',
           },
         },
         nit: {
-          size: 12,
+          size: 13,
+          sizes: { '3bpol': 13 },
           actions: {
-            '3bet': 'JJ+, AQs+, KQs, Q3s-Q2s, J4s-J3s, AKo, A6o-A3o, K9o-K7o, QTo-Q9o',
-            call:   'TT-22, AJs-A2s, KJs-K2s, Q4s+, J5s+, T6s+, 96s+, 86s+, 75s+, 64s+, 53s+, 43s, AQo-A7o, KTo+, QJo, JTo',
+            '3bpol': 'JJ+, AQs+, KQs, Q3s-Q2s, J4s-J3s, AKo, A6o-A3o, K9o-K7o, QTo-Q9o',
+            call:    'TT-22, AJs-A2s, KJs-K2s, Q4s+, J5s+, T7s+, T6s:0.5, 96s+, 85s+, 75s+, 64s+, 53s+, 43s, AQo-A7o, KTo+, QJo',
           },
         },
       },
