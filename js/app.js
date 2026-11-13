@@ -578,7 +578,9 @@
 
   // openWeight (optionnel, défense vs 3bet) = fréquence d'open du héros pour cette main : sépare
   // visuellement le fold au 3bet (gris clair) du fold faute d'avoir même été open-raise (gris foncé).
-  function background(s, openWeight) {
+  // order (optionnel) : actions dans l'ordre d'affichage, par défaut celles du spot courant
+  // (le drill le passe pour dessiner la range d'un autre spot, ex. fenêtre de fin de série).
+  function background(s, openWeight, order = actionOrder()) {
     const stops = [];
     let acc = 0;
     const push = (color, f) => {
@@ -586,7 +588,7 @@
       stops.push(color + ' ' + acc * 100 + '%', color + ' ' + (acc + f) * 100 + '%');
       acc += f;
     };
-    actionOrder().forEach((a) => {
+    order.forEach((a) => {
       const f = s[a] || 0;
       if (f <= 0) return;
       if (a === 'fold' && openWeight != null) {
@@ -1001,7 +1003,7 @@
   // POSITIONS et tableLevel changent : exposés par des getters.
   const RPok = window.RPok = {
     state, PROFILES, profileOf, CENTER, tableEl, $, fmt, lerp, seatXY, combos, allHands, handAt,
-    buildStrategy, heroOpenStrategy, render, renderTable, renderGrid, renderProfiles, hideMenu, setFormat,
+    buildStrategy, heroOpenStrategy, background, render, renderTable, renderGrid, renderProfiles, hideMenu, setFormat,
     get POSITIONS() { return POSITIONS; },
     get tableLevel() { return tableLevel; },
     drill: null,

@@ -8,7 +8,7 @@
   // POSITIONS et tableLevel changent (format, table) : toujours lus via R.POSITIONS / R.tableLevel.
   const {
     state, PROFILES, profileOf, CENTER, tableEl, $, fmt, lerp, seatXY, combos, allHands, handAt,
-    buildStrategy, heroOpenStrategy, render, renderTable, renderGrid, renderProfiles, hideMenu, setFormat,
+    buildStrategy, heroOpenStrategy, background, render, renderTable, renderGrid, renderProfiles, hideMenu, setFormat,
   } = R;
 
   /* ---------- Drill (entraînement sur tous les spots) ---------- */
@@ -446,63 +446,110 @@
     $('#results-modal').hidden = true;
   }
 
+  // Couleur d'un score : vert à partir de 90 %, jaune à partir de 75 %, rouge en dessous.
+  const scoreColor = (p) => (p >= 90 ? '#3fa96b' : p >= 75 ? '#e3b31b' : '#e0523f');
+  const RING_C = 2 * Math.PI * 52; // circonférence de l'anneau (rayon 52 dans un viewBox de 120)
+
   function renderResults() {
     const { mode, profile, answers } = lastDrillResult;
     const n = answers.length;
     const count = (v) => answers.filter((a) => a.verdict === v).length;
     const ok = count('ok'), mix = count('mix'), ko = count('ko');
+    const score = n ? Math.round(((ok + mix) / n) * 100) : 0;
     $('#results-title').textContent = 'Résultat · ' + DRILL_MODES.find((m) => m.id === mode).label +
       (profile ? ' · ' + profileOf(profile).label : '');
 
-    // Score par thème (seulement si la série mélange plusieurs types de question).
+    // Anneau qui se remplit selon le score, pourcentage au centre.
+    const ring = '<div class="res-ring" style="--ring:' + scoreColor(score) + '">' +
+      '<svg viewBox="0 0 120 120" aria-hidden="true"><circle class="track" cx="60" cy="60" r="52"/>' +
+      '<circle class="fill" cx="60" cy="60" r="52" stroke-dasharray="' + RING_C + '" stroke-dashoffset="' + RING_C + '"/></svg>' +
+      '<div class="val"><b>' + score + '%</b><small>' + (ok + mix) + ' / ' + n + '</small></div></div>';
+    const stat = (v, label, color) => '<span class="res-stat" style="--c:' + color + '"><b>' + v + '</b> ' + label + '</span>';
+    const stats = '<div class="res-stats">' + stat(ok, ok > 1 ? 'justes' : 'juste', '#3fa96b') +
+      (mix ? stat(mix, mix > 1 ? 'mixtes' : 'mixte', '#e3b31b') : '') +
+      stat(ko, ko > 1 ? 'erreurs' : 'erreur', '#e0523f') + '</div>';
+
+    // Score par thème en barres (seulement si la série mélange plusieurs types de question).
     const byKind = {};
     answers.forEach(({ q, verdict }) => {
       const k = byKind[q.kind] || (byKind[q.kind] = { n: 0, ok: 0 });
       k.n++;
       if (verdict !== 'ko') k.ok++;
     });
-    const kindRows = Object.keys(byKind).length > 1
-      ? DRILL_MODES.filter((m) => byKind[m.id]).map((m) => '<tr><td>' + m.label + '</td>' +
-        '<td class="num">' + byKind[m.id].ok + ' / ' + byKind[m.id].n + '</td>' +
-        '<td class="num">' + pct(byKind[m.id].ok, byKind[m.id].n) + '</td></tr>').join('')
+    const kinds = Object.keys(byKind).length > 1
+      ? '<h3 class="res-h">Par thème</h3><div class="res-kinds">' + DRILL_MODES.filter((m) => byKind[m.id]).map((m) => {
+        const k = byKind[m.id], p = Math.round((k.ok / k.n) * 100);
+        return '<span>' + m.label + '</span><span class="res-bar"><i style="width:' + p + '%;--c:' + scoreColor(p) + '"></i></span>' +
+          '<span class="res-pct">' + p + '% <small>' + k.ok + '/' + k.n + '</small></span>';
+      }).join('') + '</div>'
       : '';
 
-    // Erreurs dans l'ordre de la série, avec la stratégie de la main.
-    const errorRows = answers.map((a, i) => Object.assign({ i }, a)).filter((a) => a.verdict === 'ko')
+    // Erreurs dans l'ordre de la série : main, spot, réponse donnée barrée → stratégie de la main.
+    const errors = answers.map((a, i) => Object.assign({ i }, a)).filter((a) => a.verdict === 'ko')
       .map(({ i, q, action }) => {
         const strat = q.answers.filter((x) => (q.freqs[x] || 0) > MIX_EPS)
           .sort((x, y) => q.freqs[y] - q.freqs[x])
-          .map((x) => answerLabel(x, q) + (q.freqs[x] < 1 - MIX_EPS ? ' ' + Math.round(q.freqs[x] * 100) + ' %' : ''))
-          .join(' / ');
-        const key = [q.kind, q.hero, q.villain || '', q.profile, q.hand].join('|');
-        return '<tr class="errors-hand" data-key="' + key + '"><td class="num muted">' + (i + 1) + '</td>' +
-          '<td class="hand">' + q.hand + '</td><td>' + drillSpotLabel(q) + ' ' + profileBadge(q.profile) + '</td>' +
-          '<td>' + answerLabel(action, q) + '</td><td>' + strat + '</td></tr>';
+          .map((x) => (q.freqs[x] < 1 - MIX_EPS ? Math.round(q.freqs[x] * 100) + '% ' : '') + answerLabel(x, q))
+          .join(' | ');
+        // Un tap sur la ligne déroule la range du spot juste en dessous (dessinée au premier tap).
+        return '<li class="res-err" data-i="' + i + '"><div class="res-row"><span class="res-hand">' + q.hand + '</span>' +
+          '<div><div class="res-spot">' + drillSpotLabel(q) + ' ' + profileBadge(q.profile) + '</div>' +
+          '<div class="res-what"><span class="given">' + answerLabel(action, q) + '</span> → ' + strat + '</div></div>' +
+          '<span class="res-num">#' + (i + 1) + '</span></div><div class="res-range" hidden></div></li>';
       }).join('');
 
-    const score = n ? Math.round(((ok + mix) / n) * 100) : 0;
     $('#results-body').innerHTML =
-      '<div class="results-score ' + (score >= 90 ? 'good' : score >= 75 ? 'fair' : 'bad') + '">' + score + ' %</div>' +
-      '<p class="results-summary"><b>' + (ok + mix) + '</b> bonnes réponses sur <b>' + n + '</b>' +
-      (mix ? ' <span class="muted">(dont ' + mix + ' sur une main mixte)</span>' : '') +
-      ' · <b>' + ko + '</b> erreur' + (ko > 1 ? 's' : '') + '</p>' +
-      (kindRows ? '<h3>Score par thème</h3><table class="errors-table"><thead><tr><th>Thème</th>' +
-        '<th class="num">Justes</th><th class="num">Score</th></tr></thead><tbody>' + kindRows + '</tbody></table>' : '') +
-      (errorRows
-        ? '<h3>Erreurs <span class="muted">(clic : voir la range)</span></h3><table class="errors-table"><thead><tr>' +
-          '<th class="num">#</th><th>Main</th><th>Spot</th><th>Ta réponse</th><th>Stratégie</th></tr></thead><tbody>' +
-          errorRows + '</tbody></table>'
-        : '<p class="muted">Aucune erreur, bravo !</p>');
+      '<div class="res-hero">' + ring + stats + '</div>' + kinds +
+      (errors
+        ? '<h3 class="res-h">Erreurs</h3><ul class="res-errs">' + errors + '</ul>'
+        : '<p class="res-perfect">Aucune erreur, bravo !</p>');
+
+    // Remplissage animé de l'anneau une fois la fenêtre affichée.
+    const fill = $('#results-body .res-ring .fill');
+    requestAnimationFrame(() => requestAnimationFrame(() => {
+      fill.style.strokeDashoffset = RING_C * (1 - score / 100);
+    }));
+  }
+
+  // Range complète du spot d'une question (grille 13×13 + légende), main de la question entourée.
+  // Mêmes couleurs que la grille principale, fold au 3bet en gris clair pour la défense vs 3bet.
+  function miniRangeHtml(q) {
+    const strat = buildStrategy(q.spot);
+    const order = Object.keys(q.spot.actions).concat('fold');
+    let openW = null;
+    if (q.kind === 'vs3bet') {
+      const open = heroOpenStrategy(q.profile, q.hero);
+      if (open) { openW = {}; Object.entries(open).forEach(([h, s]) => { openW[h] = 1 - s.fold; }); }
+    }
+    let cells = '';
+    for (let r = 0; r < 13; r++) {
+      for (let c = 0; c < 13; c++) {
+        const h = handAt(r, c);
+        const s = strat[h];
+        const cls = (s.fold >= 0.999 ? ' out' : '') + (h === q.hand ? ' hit' : '');
+        cells += '<span class="res-cell' + cls + '" style="background:' + background(s, openW ? openW[h] : null, order) + '">' + h + '</span>';
+      }
+    }
+    // Légende : actions présentes dans la range (le fold toujours).
+    const legend = order.filter((a) => a === 'fold' || allHands().some((h) => strat[h][a] > 0)).map((a) => {
+      const color = a === 'fold' && openW ? window.ACTIONS.fold3bet.color : window.ACTIONS[a].color;
+      return '<span><i style="background:' + color + '"></i>' + window.ACTIONS[a].label + '</span>';
+    }).join('');
+    return '<div class="res-grid">' + cells + '</div><div class="res-legend">' + legend + '</div>';
   }
 
   function bindResults() {
     $('#results-close').addEventListener('click', closeResults);
     $('#results-modal').addEventListener('click', (e) => { if (e.target.id === 'results-modal') closeResults(); });
+    // Tap sur une erreur : déroule / replie la range de son spot sous la ligne (la fenêtre reste ouverte).
     $('#results-body').addEventListener('click', (e) => {
-      const row = e.target.closest('.errors-hand');
+      const row = e.target.closest('.res-row');
       if (!row) return;
-      closeResults();
-      showErrorHand(row.dataset.key);
+      const li = row.parentElement;
+      const box = li.querySelector('.res-range');
+      if (!box.innerHTML) box.innerHTML = miniRangeHtml(lastDrillResult.answers[li.dataset.i].q);
+      box.hidden = !box.hidden;
+      li.classList.toggle('open', !box.hidden);
     });
     $('#results-again').addEventListener('click', () => {
       closeResults();

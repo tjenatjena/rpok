@@ -158,12 +158,73 @@ main {
 
 /* Fenêtre de fin de série du drill (score + erreurs). */
 .drill-menu .drill-last + .drill-errors { margin-top: 0; }
-.results-score { font-size: 44px; font-weight: 800; line-height: 1; text-align: center; font-variant-numeric: tabular-nums; }
-.results-score.good { color: #3fa96b; }
-.results-score.fair { color: #e0b03f; }
-.results-score.bad { color: #e0523f; }
-.results-summary { margin: 6px 0 0; text-align: center; }
 .modal-foot button:hover { border-color: var(--accent); color: var(--accent); }
+#results-modal .modal-box { width: min(560px, 100%); }
+/* Liste défilante sans barre de défilement visible. */
+#results-body { scrollbar-width: none; -ms-overflow-style: none; }
+#results-body::-webkit-scrollbar { display: none; }
+.res-hero { display: flex; flex-direction: column; align-items: center; gap: 14px; padding: 6px 0 10px; }
+/* Anneau de score : --ring = couleur du score (vert / jaune / rouge), rempli par stroke-dashoffset. */
+.res-ring { position: relative; width: 156px; height: 156px; }
+.res-ring svg { width: 100%; height: 100%; transform: rotate(-90deg); }
+.res-ring circle { fill: none; stroke-width: 9; }
+.res-ring .track { stroke: var(--surface-2); }
+.res-ring .fill { stroke: var(--ring); stroke-linecap: round; transition: stroke-dashoffset 1.1s cubic-bezier(.2, .8, .2, 1); }
+.res-ring .val { position: absolute; inset: 0; display: grid; place-content: center; text-align: center; }
+.res-ring .val b { font-size: 40px; font-weight: 800; line-height: 1; color: var(--ring); font-variant-numeric: tabular-nums; }
+.res-ring .val small { margin-top: 6px; font-size: 13px; color: var(--muted); font-variant-numeric: tabular-nums; }
+.res-stats { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; }
+.res-stat {
+  display: inline-flex; align-items: center; gap: 6px; font-size: 13px; color: var(--muted);
+  padding: 4px 12px; border-radius: 999px; background: var(--surface-2);
+}
+.res-stat::before { content: ''; width: 8px; height: 8px; border-radius: 50%; background: var(--c); }
+.res-stat b { color: var(--text); }
+.errors-body .res-h {
+  margin: 14px 0 8px; font-size: 11px; font-weight: 600; letter-spacing: .8px;
+  text-transform: uppercase; color: var(--muted);
+}
+.res-h span { text-transform: none; letter-spacing: 0; font-weight: 400; }
+.res-kinds { display: grid; grid-template-columns: auto 1fr auto; gap: 8px 12px; align-items: center; }
+.res-bar { height: 6px; border-radius: 3px; background: var(--surface-2); overflow: hidden; }
+.res-bar i { display: block; height: 100%; border-radius: 3px; background: var(--c); }
+.res-pct { font-weight: 600; text-align: right; font-variant-numeric: tabular-nums; }
+.res-pct small { font-weight: 400; color: var(--muted); }
+.res-errs { list-style: none; margin: 0; padding: 0; }
+.res-err + .res-err { border-top: 1px solid var(--border); }
+.res-row {
+  display: grid; grid-template-columns: 48px 1fr auto auto; gap: 10px; align-items: center;
+  padding: 8px 6px; border-radius: 8px; cursor: pointer;
+}
+.res-row:hover { background: var(--surface-2); }
+.res-row::after { content: '▾'; color: var(--muted); transition: transform .15s; }
+.res-err.open .res-row::after { transform: rotate(180deg); }
+/* Range déroulée sous une erreur : grille 13×13, main de l'erreur entourée en rouge. */
+.res-range { padding: 4px 0 12px; }
+.res-range[hidden] { display: none; }
+.res-grid {
+  display: grid; grid-template-columns: repeat(13, 1fr); gap: 1px;
+  width: 100%; max-width: 380px; margin: 0 auto;
+}
+.res-cell {
+  aspect-ratio: 1; display: grid; place-items: center; border-radius: 2px;
+  font-size: clamp(6px, 2.2vw, 9px); font-weight: 600; color: #fff;
+  text-shadow: 0 1px 1px rgba(0,0,0,.35); overflow: hidden;
+}
+.res-cell.out { color: #7f8b9a; text-shadow: none; }
+.res-cell.hit { position: relative; z-index: 1; box-shadow: 0 0 0 1px rgba(0,0,0,.65), 0 0 0 3px #ff2d2d; }
+.res-legend { display: flex; flex-wrap: wrap; justify-content: center; gap: 4px 12px; margin-top: 8px; font-size: 12px; color: var(--muted); }
+.res-legend span { display: inline-flex; align-items: center; gap: 5px; }
+.res-legend i { width: 10px; height: 10px; border-radius: 2px; }
+.res-hand { font-size: 16px; font-weight: 800; }
+.res-spot { font-size: 13px; }
+.res-spot .profile-badge { font-size: 11px; padding: 1px 6px; margin-left: 4px; }
+.res-what { margin-top: 2px; font-size: 12px; color: var(--muted); }
+.res-what .given { color: #e0523f; text-decoration: line-through; }
+.res-num { font-size: 12px; color: var(--muted); font-variant-numeric: tabular-nums; }
+.res-perfect { text-align: center; color: #3fa96b; font-weight: 600; margin: 8px 0 0; }
+#results-again { background: var(--accent); border-color: var(--accent); color: #fff; }
+#results-again:hover { filter: brightness(1.1); color: #fff; }
 
 /* ---------- Profil de la table ---------- */
 
@@ -567,8 +628,14 @@ body:not(.drilling) .drill-score { display: none; }
   .cell { aspect-ratio: 1; font-size: clamp(7px, 2.6vw, 13px); }
   .panel { width: auto; max-height: none; }
   .table-wrap { flex-direction: column; height: auto; }
-  /* Pas de menu de profil sur petit écran (le profil reste visible dans le titre et le tapis). */
-  .profiles { display: none; }
+  /* Menu de profil en ligne sous la table ; masqué pendant le drill (le profil reste visible
+     dans le titre et le tapis). */
+  .profiles-ghost { display: none; }
+  .profiles { width: auto; max-height: none; }
+  .profile-list { flex-direction: row; flex-wrap: wrap; }
+  .profile-list li { flex: none; }
+  .profile-list button { width: auto; height: auto; padding: 4px 8px; }
+  body.drilling .profiles { display: none; }
 
   /* Menu Drill sur petit écran : panneau pleine largeur sous le bouton Drill (dans le flux, il
      pousse la table), modes en accordéon : un tap ouvre les profils du mode juste en dessous. */
